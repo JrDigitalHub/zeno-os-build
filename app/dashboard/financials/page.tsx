@@ -1,7 +1,22 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { BookOpen, ArrowDownLeft, ArrowUpRight, Filter, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
+import { useState, useMemo, useRef, useCallback } from 'react'
+import {
+  BookOpen,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Filter,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  Plus,
+  X,
+  Upload,
+  Link2,
+  FileText,
+  CheckCircle2,
+  Loader2,
+} from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -116,10 +131,346 @@ function FilterPill({
   )
 }
 
+// ── Ingestion modal ────────────────────────────────────────────────────────
+
+type IngestionTab = 'file' | 'url' | 'text'
+type IngestionState = 'idle' | 'processing' | 'done'
+
+interface IngestionSummary {
+  files: string[]
+  url: string
+  text: boolean
+}
+
+function IngestionModal({ onClose }: { onClose: () => void }) {
+  const [tab, setTab] = useState<IngestionTab>('file')
+  const [dragOver, setDragOver] = useState(false)
+  const [files, setFiles] = useState<File[]>([])
+  const [url, setUrl] = useState('')
+  const [rawText, setRawText] = useState('')
+  const [state, setState] = useState<IngestionState>('idle')
+  const [summary, setSummary] = useState<IngestionSummary | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const ACCEPTED = '.pdf,.csv,.xlsx,.xls,.png,.jpg,.jpeg'
+
+  const addFiles = useCallback((incoming: FileList | null) => {
+    if (!incoming) return
+    setFiles((prev) => {
+      const existing = new Set(prev.map((f) => f.name))
+      const next = Array.from(incoming).filter((f) => !existing.has(f.name))
+      return [...prev, ...next]
+    })
+  }, [])
+
+  const removeFile = (name: string) =>
+    setFiles((prev) => prev.filter((f) => f.name !== name))
+
+  async function handleProcess() {
+    setState('processing')
+    // TODO: replace with real POST to /api/v1/cfo/ingest
+    await new Promise((res) => setTimeout(res, 1800))
+    setSummary({
+      files: files.map((f) => f.name),
+      url: url.trim(),
+      text: rawText.trim().length > 0,
+    })
+    setState('done')
+  }
+
+  const hasInput = files.length > 0 || url.trim() !== '' || rawText.trim() !== ''
+
+  const TABS: { key: IngestionTab; label: string; icon: React.ElementType }[] = [
+    { key: 'file', label: 'File / Image', icon: Upload },
+    { key: 'url',  label: 'URL',          icon: Link2 },
+    { key: 'text', label: 'Raw Text',     icon: FileText },
+  ]
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(11,25,41,0.85)', backdropFilter: 'blur(6px)' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl overflow-hidden flex flex-col"
+        style={{
+          background: '#0f2035',
+          border: '1px solid rgba(201,168,76,0.22)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+          maxHeight: '90vh',
+        }}
+      >
+        {/* Modal header */}
+        <div
+          className="flex items-center justify-between px-6 py-4 border-b"
+          style={{ borderColor: 'rgba(201,168,76,0.12)' }}
+        >
+          <div>
+            <p className="text-sm font-semibold" style={{ color: '#f0f4f8' }}>
+              Financial Data Ingestion
+            </p>
+            <p className="text-[11px] font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+              CFO · Parse &amp; import new financial data
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+            style={{ color: '#7a95b0' }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#f0f4f8')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#7a95b0')}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {state === 'done' && summary ? (
+          /* ── Success state ── */
+          <div className="flex flex-col items-center justify-center gap-4 px-6 py-12">
+            <CheckCircle2 size={36} style={{ color: '#4a9c5d' }} />
+            <div className="text-center">
+              <p className="text-sm font-semibold mb-1" style={{ color: '#f0f4f8' }}>
+                Data parsed successfully
+              </p>
+              <p className="text-xs font-mono" style={{ color: '#7a95b0' }}>
+                Ready to add to your ledger
+              </p>
+            </div>
+            {/* Summary */}
+            <div
+              className="w-full rounded-xl p-4 flex flex-col gap-2"
+              style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.15)' }}
+            >
+              {summary.files.length > 0 && (
+                <div className="flex items-start gap-2">
+                  <Upload size={13} style={{ color: '#c9a84c', marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: '#c9a84c' }}>
+                      {summary.files.length} file{summary.files.length > 1 ? 's' : ''} detected
+                    </p>
+                    {summary.files.map((n) => (
+                      <p key={n} className="text-[11px] font-mono truncate" style={{ color: '#7a95b0' }}>
+                        {n}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {summary.url && (
+                <div className="flex items-start gap-2">
+                  <Link2 size={13} style={{ color: '#c9a84c', marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: '#c9a84c' }}>
+                      1 URL parsed
+                    </p>
+                    <p className="text-[11px] font-mono truncate" style={{ color: '#7a95b0' }}>
+                      {summary.url}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {summary.text && (
+                <div className="flex items-center gap-2">
+                  <FileText size={13} style={{ color: '#c9a84c', flexShrink: 0 }} />
+                  <p className="text-xs font-semibold" style={{ color: '#c9a84c' }}>
+                    Raw text block received
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{
+                  background: 'rgba(201,168,76,0.1)',
+                  border: '1px solid rgba(201,168,76,0.25)',
+                  color: '#c9a84c',
+                }}
+              >
+                Add to Ledger
+              </button>
+              <button
+                onClick={() => { setState('idle'); setSummary(null); setFiles([]); setUrl(''); setRawText('') }}
+                className="px-4 py-2.5 rounded-xl text-sm transition-all"
+                style={{ color: '#7a95b0', border: '1px solid rgba(122,149,176,0.2)' }}
+              >
+                Ingest More
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* ── Input state ── */
+          <div className="flex flex-col gap-0 overflow-auto">
+            {/* Tabs */}
+            <div
+              className="flex gap-1 p-3 border-b"
+              style={{ borderColor: 'rgba(201,168,76,0.1)' }}
+            >
+              {TABS.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium flex-1 justify-center transition-all"
+                  style={{
+                    background: tab === key ? 'rgba(201,168,76,0.12)' : 'transparent',
+                    color: tab === key ? '#c9a84c' : '#7a95b0',
+                    border: `1px solid ${tab === key ? 'rgba(201,168,76,0.3)' : 'transparent'}`,
+                  }}
+                >
+                  <Icon size={13} />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-5 flex flex-col gap-4">
+              {/* File tab */}
+              {tab === 'file' && (
+                <>
+                  <div
+                    className="relative rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-3 py-10 cursor-pointer transition-all"
+                    style={{
+                      borderColor: dragOver ? 'rgba(201,168,76,0.6)' : 'rgba(201,168,76,0.2)',
+                      background: dragOver ? 'rgba(201,168,76,0.05)' : 'transparent',
+                    }}
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={(e) => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files) }}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload size={22} style={{ color: dragOver ? '#c9a84c' : '#7a95b0' }} />
+                    <div className="text-center">
+                      <p className="text-sm font-medium" style={{ color: '#c0cdd8' }}>
+                        Drag &amp; drop files here
+                      </p>
+                      <p className="text-xs font-mono mt-1" style={{ color: '#7a95b0' }}>
+                        PDF, CSV, Excel, PNG, JPG · Click to browse
+                      </p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept={ACCEPTED}
+                      className="hidden"
+                      onChange={(e) => addFiles(e.target.files)}
+                    />
+                  </div>
+                  {files.length > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      {files.map((f) => (
+                        <div
+                          key={f.name}
+                          className="flex items-center justify-between px-3 py-2 rounded-lg"
+                          style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.12)' }}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText size={12} style={{ color: '#c9a84c', flexShrink: 0 }} />
+                            <span className="text-xs font-mono truncate" style={{ color: '#c0cdd8' }}>
+                              {f.name}
+                            </span>
+                            <span className="text-[10px] font-mono flex-shrink-0" style={{ color: '#7a95b0' }}>
+                              {(f.size / 1024).toFixed(1)} KB
+                            </span>
+                          </div>
+                          <button onClick={() => removeFile(f.name)}>
+                            <X size={13} style={{ color: '#7a95b0' }} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* URL tab */}
+              {tab === 'url' && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-mono uppercase tracking-wider" style={{ color: '#7a95b0' }}>
+                    Report or Spreadsheet URL
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://docs.google.com/spreadsheets/..."
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl text-sm font-mono outline-none transition-all"
+                    style={{
+                      background: 'rgba(201,168,76,0.05)',
+                      border: '1px solid rgba(201,168,76,0.2)',
+                      color: '#f0f4f8',
+                    }}
+                    onFocus={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.5)')}
+                    onBlur={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.2)')}
+                  />
+                  <p className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>
+                    Supports Google Sheets, Notion exports, SharePoint, and direct CSV/XLSX links.
+                  </p>
+                </div>
+              )}
+
+              {/* Text tab */}
+              {tab === 'text' && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-mono uppercase tracking-wider" style={{ color: '#7a95b0' }}>
+                    Paste Raw Ledger Data
+                  </label>
+                  <textarea
+                    rows={8}
+                    placeholder={'Date, Description, Amount\n2026-06-30, Acme Corp invoice, 4200\n2026-06-29, AWS infra, -1800\n...'}
+                    value={rawText}
+                    onChange={(e) => setRawText(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl text-xs font-mono outline-none resize-none transition-all"
+                    style={{
+                      background: 'rgba(201,168,76,0.05)',
+                      border: '1px solid rgba(201,168,76,0.2)',
+                      color: '#f0f4f8',
+                      lineHeight: 1.6,
+                    }}
+                    onFocus={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.5)')}
+                    onBlur={(e) => ((e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,168,76,0.2)')}
+                  />
+                  <p className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>
+                    Paste CSV, tab-separated, or plain text — the parser will normalise the format.
+                  </p>
+                </div>
+              )}
+
+              {/* Process button */}
+              <button
+                onClick={handleProcess}
+                disabled={!hasInput || state === 'processing'}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  background: hasInput ? 'rgba(201,168,76,0.15)' : 'transparent',
+                  border: `1px solid ${hasInput ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.1)'}`,
+                  color: hasInput ? '#c9a84c' : '#7a95b0',
+                }}
+              >
+                {state === 'processing' ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    Parsing financial data...
+                  </>
+                ) : (
+                  'Process Data'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function FinancialsPage() {
   const [filter, setFilter] = useState<FilterType>('all')
+  const [ingestionOpen, setIngestionOpen] = useState(false)
 
   const visible = useMemo(
     () =>
@@ -147,13 +498,38 @@ export default function FinancialsPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Page header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <BookOpen size={16} style={{ color: '#c9a84c' }} />
-          <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
-            CFO · Financial Ledger
-          </span>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <BookOpen size={16} style={{ color: '#c9a84c' }} />
+            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
+              CFO · Financial Ledger
+            </span>
+          </div>
+          <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
+            Cash Flow &amp; Transactions
+          </h1>
+          <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+            Showing {visible.length} of {ALL_TRANSACTIONS.length} transactions
+          </p>
         </div>
+        <button
+          onClick={() => setIngestionOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold flex-shrink-0 transition-all"
+          style={{
+            background: 'rgba(201,168,76,0.12)',
+            border: '1px solid rgba(201,168,76,0.3)',
+            color: '#c9a84c',
+          }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)')}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.12)')}
+        >
+          <Plus size={14} />
+          New Data
+        </button>
+      </div>
+
+      {ingestionOpen && <IngestionModal onClose={() => setIngestionOpen(false)} />}
         <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
           Cash Flow & Transactions
         </h1>

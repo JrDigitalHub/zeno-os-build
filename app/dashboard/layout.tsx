@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   Search,
@@ -31,8 +31,18 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function handleSignOut() {
+    setUserMenuOpen(false)
+    setSigningOut(true)
+    // TODO: call your auth sign-out endpoint here before redirecting
+    await new Promise((res) => setTimeout(res, 1200))
+    router.push('/login')
+  }
 
   const activePage = NAV_ITEMS.find((item) => item.href === pathname)?.label ?? 'Dashboard'
 
@@ -122,9 +132,12 @@ export default function DashboardLayout({
           style={{ borderColor: 'rgba(201,168,76,0.1)' }}
         >
           <button
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all disabled:opacity-50"
             style={{ color: '#7a95b0' }}
             onMouseEnter={(e) => {
+              if (signingOut) return
               ;(e.currentTarget as HTMLElement).style.color = '#e05252'
               ;(e.currentTarget as HTMLElement).style.background = 'rgba(224,82,82,0.07)'
             }}
@@ -134,7 +147,7 @@ export default function DashboardLayout({
             }}
           >
             <LogOut size={15} />
-            <span className="text-[13px]">Sign Out</span>
+            <span className="text-[13px]">{signingOut ? 'Signing out...' : 'Sign Out'}</span>
           </button>
         </div>
       </aside>
@@ -276,10 +289,12 @@ export default function DashboardLayout({
                       style={{ background: 'rgba(201,168,76,0.1)' }}
                     />
                     <button
-                      className="w-full text-left px-4 py-2 text-xs transition-all"
+                      onClick={handleSignOut}
+                      disabled={signingOut}
+                      className="w-full text-left px-4 py-2 text-xs transition-all disabled:opacity-50"
                       style={{ color: '#e05252' }}
                     >
-                      Sign Out
+                      {signingOut ? 'Signing out...' : 'Sign Out'}
                     </button>
                   </div>
                 </div>
@@ -304,6 +319,37 @@ export default function DashboardLayout({
           {children}
         </main>
       </div>
+
+      {/* ── Sign-out overlay ── */}
+      {signingOut && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4"
+          style={{ background: 'rgba(11,25,41,0.92)', backdropFilter: 'blur(6px)' }}
+        >
+          <Image
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/zeno-logo-lkiAE73bRovt0MDeLabqYwMQSuit6L.png"
+            alt="Zeno OS"
+            width={40}
+            height={40}
+            className="opacity-80"
+          />
+          <p className="text-sm font-mono" style={{ color: '#c9a84c' }}>
+            Signing out...
+          </p>
+          <div className="flex gap-1.5">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="w-1.5 h-1.5 rounded-full animate-bounce"
+                style={{
+                  background: '#c9a84c',
+                  animationDelay: `${i * 120}ms`,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

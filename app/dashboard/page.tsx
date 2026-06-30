@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Zap,
   DollarSign,
@@ -120,7 +121,15 @@ function MetricCard({
   )
 }
 
-function PanelHeader({ title, badge }: { title: string; badge?: string }) {
+function PanelHeader({
+  title,
+  badge,
+  onViewAll,
+}: {
+  title: string
+  badge?: string
+  onViewAll?: () => void
+}) {
   return (
     <div
       className="flex items-center justify-between px-5 py-4 border-b"
@@ -140,8 +149,15 @@ function PanelHeader({ title, badge }: { title: string; badge?: string }) {
         )}
       </div>
       <button
+        onClick={onViewAll}
         className="flex items-center gap-1 text-xs font-mono transition-all"
         style={{ color: '#7a95b0' }}
+        onMouseEnter={(e) => {
+          ;(e.currentTarget as HTMLElement).style.color = '#c9a84c'
+        }}
+        onMouseLeave={(e) => {
+          ;(e.currentTarget as HTMLElement).style.color = '#7a95b0'
+        }}
       >
         View all <ChevronRight size={12} />
       </button>
@@ -169,6 +185,8 @@ const PRIORITY_STYLES: Record<string, string> = {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CommandCenterPage() {
+  const router = useRouter()
+
   // ── Oracle data ──────────────────────────────────────────────────────────
   // TODO: Wire to Go backend → GET /api/v1/oracle/status
   const [oracleData, setOracleData] = useState<OracleStatus | null>(null)
@@ -242,6 +260,7 @@ export default function CommandCenterPage() {
           <PanelHeader
             title="Oracle"
             badge={oracleData ? `${oracleData.totalLeads} leads` : undefined}
+            onViewAll={() => router.push('/dashboard/oracle')}
           />
           <div className="p-4 flex flex-col gap-2">
             {/* Summary */}
@@ -304,6 +323,7 @@ export default function CommandCenterPage() {
           <PanelHeader
             title="COO"
             badge={cooData ? `${cooData.tasks.filter((t) => t.status === 'in_progress').length} active` : undefined}
+            onViewAll={() => router.push('/dashboard/operations')}
           />
           <div className="p-4 flex flex-col gap-2">
             <p className="text-[10px] font-mono uppercase tracking-widest px-1 mb-1" style={{ color: 'rgba(122,149,176,0.5)' }}>
@@ -365,7 +385,7 @@ export default function CommandCenterPage() {
           className="rounded-xl border overflow-hidden"
           style={{ background: '#0f2035', borderColor: 'rgba(201,168,76,0.15)' }}
         >
-          <PanelHeader title="CFO" badge="Cash Flow" />
+          <PanelHeader title="CFO" badge="Cash Flow" onViewAll={() => router.push('/dashboard/financials')} />
           <div className="p-4">
             {/* Balance overview */}
             <div
