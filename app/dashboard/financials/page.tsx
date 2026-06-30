@@ -530,13 +530,6 @@ export default function FinancialsPage() {
       </div>
 
       {ingestionOpen && <IngestionModal onClose={() => setIngestionOpen(false)} />}
-        <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
-          Cash Flow & Transactions
-        </h1>
-        <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
-          Showing {visible.length} of {ALL_TRANSACTIONS.length} transactions
-        </p>
-      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
