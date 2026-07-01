@@ -14,13 +14,16 @@ import {
   Menu,
   X,
   User,
+  Plug,
 } from 'lucide-react'
+import { NeuralFeed } from '@/components/neural-feed'
 
 const NAV_ITEMS = [
   { label: 'Command Center', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Oracle Research', href: '/dashboard/oracle', icon: Search },
   { label: 'COO Kanban', href: '/dashboard/operations', icon: KanbanSquare },
   { label: 'CFO Ledger', href: '/dashboard/financials', icon: BookOpen },
+  { label: 'Integrations', href: '/dashboard/integrations', icon: Plug },
 ]
 
 const WORKSPACE_NAME = 'Acme Corp'
@@ -211,6 +214,14 @@ export default function DashboardLayout({
 
             <div
               className="h-4 w-px hidden md:block"
+              style={{ background: 'rgba(201,168,76,0.15)' }}
+            />
+
+            {/* Neural Feed */}
+            <NeuralFeed />
+
+            <div
+              className="h-4 w-px"
               style={{ background: 'rgba(201,168,76,0.15)' }}
             />
 
