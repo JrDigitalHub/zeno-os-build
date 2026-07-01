@@ -266,10 +266,16 @@ export default function DashboardLayout({
                     </p>
                   </div>
                   <div className="py-1.5">
-                    {['Profile Settings', 'Workspace Config', 'Billing'].map((item) => (
-                      <button
-                        key={item}
-                        className="w-full text-left px-4 py-2 text-xs transition-all"
+                    {[
+                      { label: 'Profile Settings', href: '/dashboard/profile' },
+                      { label: 'Workspace Config', href: '/dashboard/workspace' },
+                      { label: 'Billing',           href: '/dashboard/billing' },
+                    ].map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setUserMenuOpen(false)}
+                        className="block w-full text-left px-4 py-2 text-xs transition-all"
                         style={{ color: '#c0cdd8' }}
                         onMouseEnter={(e) => {
                           ;(e.currentTarget as HTMLElement).style.background =
@@ -281,8 +287,8 @@ export default function DashboardLayout({
                           ;(e.currentTarget as HTMLElement).style.color = '#c0cdd8'
                         }}
                       >
-                        {item}
-                      </button>
+                        {item.label}
+                      </Link>
                     ))}
                     <div
                       className="mx-3 my-1 h-px"
