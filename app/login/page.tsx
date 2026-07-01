@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -15,14 +17,11 @@ export default function LoginPage() {
     setError('')
     setIsLoading(true)
 
-    // Simulated loading state — wire to Supabase Auth here
-    await new Promise((resolve) => setTimeout(resolve, 1800))
+    // TODO: Replace with actual auth call, e.g. Supabase signInWithPassword
+    await new Promise((resolve) => setTimeout(resolve, 1500))
 
     setIsLoading(false)
-    // TODO: Replace with actual Supabase signIn call
-    // const { error } = await supabase.auth.signInWithPassword({ email, password })
-    // if (error) { setError(error.message); return; }
-    // router.push('/dashboard')
+    router.push('/onboarding')
   }
 
   return (
