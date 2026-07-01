@@ -1,7 +1,22 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, X, Mail, Globe, Building2, User, ChevronRight, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import {
+  Search,
+  X,
+  Mail,
+  Globe,
+  Building2,
+  User,
+  ChevronRight,
+  Loader2,
+  Zap,
+  AlertTriangle,
+  Check,
+  CheckCircle2,
+  ShieldCheck,
+} from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -216,7 +231,296 @@ Zeno OS Team`
   )
 }
 
+// ── Oracle Pricing Modal (lightweight, self-contained) ─────────────────────
+
+type Region = 'nigeria' | 'world'
+type ModalStep = 'pricing' | 'checkout' | 'success'
+
+const ORACLE_PLANS = [
+  {
+    key: 'starter' as const,
+    name: 'Starter',
+    priceUSD: '$49',
+    priceNGN: '₦75,000',
+    tagline: 'For growing SMEs',
+    features: ['500 Oracle Credits/mo', 'Basic COO Kanban', 'CFO Ledger (20 uploads)', '3 team seats'],
+  },
+  {
+    key: 'enterprise' as const,
+    name: 'Enterprise',
+    priceUSD: '$199',
+    priceNGN: '₦300,000',
+    tagline: 'Unlimited scale',
+    features: ['Unlimited Oracle Credits', 'Priority neural processing', 'Advanced CFO automation', 'Dedicated support'],
+  },
+]
+
+function OraclePricingModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const router = useRouter()
+  const [region, setRegion] = useState<Region>('world')
+  const [selected, setSelected] = useState(ORACLE_PLANS[1])
+  const [step, setStep] = useState<ModalStep>('pricing')
+  const [paying, setPaying] = useState(false)
+  const isNigeria = region === 'nigeria'
+
+  async function handlePay() {
+    setPaying(true)
+    await new Promise((res) => setTimeout(res, 2000))
+    setPaying(false)
+    setStep('success')
+    onSuccess()
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(11,25,41,0.92)', backdropFilter: 'blur(8px)' }}
+      onClick={(e) => e.target === e.currentTarget && step !== 'success' && onClose()}
+    >
+      <div
+        className="w-full max-w-xl rounded-2xl overflow-hidden flex flex-col"
+        style={{
+          background: '#0d1e30',
+          border: '1px solid rgba(201,168,76,0.22)',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+          maxHeight: '92vh',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-6 py-5 border-b flex-shrink-0"
+          style={{ borderColor: 'rgba(201,168,76,0.12)' }}
+        >
+          <div>
+            <p className="text-sm font-semibold" style={{ color: '#f0f4f8' }}>
+              {step === 'pricing' ? 'Upgrade to Continue' : step === 'checkout' ? 'Checkout' : 'Payment Confirmed'}
+            </p>
+            <p className="text-[11px] font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+              {step === 'pricing'
+                ? 'Unlock unlimited Oracle Neural Compute.'
+                : step === 'checkout'
+                ? `${selected.name} · Monthly · ${isNigeria ? selected.priceNGN : selected.priceUSD}`
+                : 'Oracle credits are now unlimited.'}
+            </p>
+          </div>
+          {step !== 'success' && (
+            <button
+              onClick={onClose}
+              className="w-7 h-7 flex items-center justify-center rounded-lg"
+              style={{ color: '#7a95b0' }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#f0f4f8')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#7a95b0')}
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Pricing step */}
+        {step === 'pricing' && (
+          <div className="overflow-auto">
+            {/* Geo toggle */}
+            <div
+              className="flex items-center justify-between px-6 py-4 border-b"
+              style={{ borderColor: 'rgba(201,168,76,0.1)' }}
+            >
+              <span className="text-xs font-mono" style={{ color: '#7a95b0' }}>Billing Region</span>
+              <div
+                className="flex items-center gap-1 p-1 rounded-xl"
+                style={{ background: 'rgba(201,168,76,0.07)', border: '1px solid rgba(201,168,76,0.15)' }}
+              >
+                {(['world', 'nigeria'] as Region[]).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRegion(r)}
+                    className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      background: region === r ? 'rgba(201,168,76,0.18)' : 'transparent',
+                      color: region === r ? '#c9a84c' : '#7a95b0',
+                      border: region === r ? '1px solid rgba(201,168,76,0.35)' : '1px solid transparent',
+                    }}
+                  >
+                    {r === 'nigeria' ? 'Nigeria (₦)' : 'Rest of World ($)'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Plan cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
+              {ORACLE_PLANS.map((plan) => {
+                const isSel = selected.key === plan.key
+                return (
+                  <button
+                    key={plan.key}
+                    onClick={() => setSelected(plan)}
+                    className="flex flex-col gap-3 p-5 rounded-xl text-left transition-all"
+                    style={{
+                      background: isSel ? 'rgba(201,168,76,0.07)' : 'rgba(201,168,76,0.02)',
+                      border: plan.key === 'enterprise'
+                        ? `1px solid ${isSel ? '#c9a84c' : 'rgba(201,168,76,0.35)'}`
+                        : `1px solid ${isSel ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.1)'}`,
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold" style={{ color: '#f0f4f8' }}>{plan.name}</p>
+                          {plan.key === 'enterprise' && (
+                            <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full"
+                              style={{ background: 'rgba(201,168,76,0.15)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.3)' }}>
+                              Recommended
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] font-mono mt-0.5" style={{ color: '#7a95b0' }}>{plan.tagline}</p>
+                      </div>
+                      {isSel && (
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ background: 'rgba(201,168,76,0.2)', border: '1px solid #c9a84c' }}>
+                          <Check size={11} style={{ color: '#c9a84c' }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-2xl font-bold" style={{ color: '#c9a84c' }}>
+                        {isNigeria ? plan.priceNGN : plan.priceUSD}
+                      </span>
+                      <span className="text-xs font-mono pb-0.5" style={{ color: '#7a95b0' }}>/mo</span>
+                    </div>
+                    <ul className="flex flex-col gap-1.5">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2">
+                          <Check size={11} style={{ color: '#c9a84c', marginTop: 3, flexShrink: 0 }} />
+                          <span className="text-[12px] font-mono" style={{ color: '#c0cdd8' }}>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="px-6 pb-6 flex flex-col gap-3">
+              <button
+                onClick={() => setStep('checkout')}
+                className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+                style={{ background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)')}
+              >
+                Select {selected.name}
+              </button>
+              <p className="text-center text-[11px] font-mono" style={{ color: '#7a95b0' }}>
+                No contracts. Cancel any time. Billed monthly.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Checkout step */}
+        {step === 'checkout' && (
+          <div className="overflow-auto flex flex-col gap-0">
+            <div
+              className="mx-6 mt-6 rounded-xl p-5 flex flex-col gap-4"
+              style={{ background: 'rgba(201,168,76,0.05)', border: '1px solid rgba(201,168,76,0.15)' }}
+            >
+              <p className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>Order Summary</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold" style={{ color: '#f0f4f8' }}>Zeno OS {selected.name}</p>
+                  <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>Billing Cycle: Monthly</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold" style={{ color: '#c9a84c' }}>
+                    {isNigeria ? selected.priceNGN : selected.priceUSD}
+                  </p>
+                  <p className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>per month</p>
+                </div>
+              </div>
+              <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: 'rgba(201,168,76,0.1)' }}>
+                <span className="text-xs font-mono" style={{ color: '#7a95b0' }}>Payment via</span>
+                <span
+                  className="text-xs font-semibold font-mono px-2 py-0.5 rounded-full"
+                  style={{
+                    background: isNigeria ? 'rgba(0,123,63,0.12)' : 'rgba(122,149,176,0.1)',
+                    color: isNigeria ? '#4a9c5d' : '#c0cdd8',
+                    border: `1px solid ${isNigeria ? 'rgba(0,123,63,0.25)' : 'rgba(122,149,176,0.2)'}`,
+                  }}
+                >
+                  {isNigeria ? 'Paystack' : 'Polar'}
+                </span>
+              </div>
+            </div>
+            <div className="px-6 mt-6 pb-6 flex flex-col gap-3">
+              <button
+                onClick={handlePay}
+                disabled={paying}
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-sm font-bold transition-all disabled:opacity-70"
+                style={isNigeria
+                  ? { background: paying ? 'rgba(0,123,63,0.4)' : '#007b3f', color: '#fff', border: '1px solid rgba(0,123,63,0.4)' }
+                  : { background: paying ? 'rgba(15,32,53,0.9)' : '#111d2b', color: '#f0f4f8', border: '1px solid rgba(201,168,76,0.25)' }
+                }
+              >
+                {paying ? (
+                  <><Loader2 size={15} className="animate-spin" /> Processing...</>
+                ) : isNigeria ? (
+                  <><ShieldCheck size={15} /> Pay securely with Paystack</>
+                ) : (
+                  <><ShieldCheck size={15} /> Checkout securely via Polar</>
+                )}
+              </button>
+              <div className="flex items-center justify-center gap-2">
+                <ShieldCheck size={12} style={{ color: '#7a95b0' }} />
+                <p className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>
+                  Secure 256-bit encryption. Cancel anytime.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success step */}
+        {step === 'success' && (
+          <div className="flex flex-col items-center justify-center gap-5 px-6 py-14">
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(74,156,93,0.12)', border: '2px solid rgba(74,156,93,0.35)' }}
+            >
+              <CheckCircle2 size={32} style={{ color: '#4a9c5d' }} />
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold" style={{ color: '#f0f4f8' }}>Welcome to Zeno Pro</p>
+              <p className="text-xs font-mono mt-1.5 max-w-xs" style={{ color: '#7a95b0' }}>
+                Oracle credits are now unlimited. All research targets are unthrottled.
+              </p>
+            </div>
+            <button
+              onClick={() => { onClose(); router.push('/dashboard') }}
+              className="px-8 py-3 rounded-xl text-sm font-bold transition-all"
+              style={{ background: 'rgba(201,168,76,0.18)', border: '1px solid rgba(201,168,76,0.4)', color: '#c9a84c' }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.28)')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.18)')}
+            >
+              Return to Command Center
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────
+
+const INITIAL_CREDITS = 3
 
 export default function OraclePage() {
   const [query, setQuery] = useState('')
@@ -226,8 +530,16 @@ export default function OraclePage() {
   const [hasSearched, setHasSearched] = useState(false)
   const [modal, setModal] = useState<DraftModalState>({ open: false, lead: null })
 
+  // Credit counter
+  const [credits, setCredits] = useState(INITIAL_CREDITS)
+  const [upgraded, setUpgraded] = useState(false)
+  const [pricingOpen, setPricingOpen] = useState(false)
+
+  const creditsExhausted = credits <= 0 && !upgraded
+
   function handleSearch() {
-    if (!query.trim()) return
+    if (!query.trim() || creditsExhausted) return
+    if (!upgraded) setCredits((c) => Math.max(0, c - 1))
     setLoading(true)
     setLeads([])
     setProgress(0)
@@ -264,22 +576,55 @@ export default function OraclePage() {
       {modal.open && modal.lead && (
         <DraftModal lead={modal.lead} onClose={() => setModal({ open: false, lead: null })} />
       )}
+      {pricingOpen && (
+        <OraclePricingModal
+          onClose={() => setPricingOpen(false)}
+          onSuccess={() => { setUpgraded(true); setPricingOpen(false) }}
+        />
+      )}
 
       <div className="p-6 max-w-6xl mx-auto">
         {/* Page header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-1">
-            <Search size={16} style={{ color: '#c9a84c' }} />
-            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
-              Oracle · Research Engine
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Search size={16} style={{ color: '#c9a84c' }} />
+              <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
+                Oracle · Research Engine
+              </span>
+            </div>
+            <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
+              Lead Intelligence
+            </h1>
+            <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+              Enter a target domain or keyword to discover and enrich leads.
+            </p>
+          </div>
+          {/* Credit counter */}
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-xl flex-shrink-0"
+            style={{
+              background: creditsExhausted
+                ? 'rgba(224,82,82,0.1)'
+                : upgraded
+                ? 'rgba(74,156,93,0.1)'
+                : credits <= 1
+                ? 'rgba(224,160,82,0.1)'
+                : 'rgba(201,168,76,0.08)',
+              border: `1px solid ${creditsExhausted ? 'rgba(224,82,82,0.3)' : upgraded ? 'rgba(74,156,93,0.3)' : credits <= 1 ? 'rgba(224,160,82,0.3)' : 'rgba(201,168,76,0.2)'}`,
+            }}
+          >
+            <Zap
+              size={13}
+              style={{ color: creditsExhausted ? '#e05252' : upgraded ? '#4a9c5d' : credits <= 1 ? '#e0a052' : '#c9a84c' }}
+            />
+            <span
+              className="text-xs font-mono font-semibold"
+              style={{ color: creditsExhausted ? '#e05252' : upgraded ? '#4a9c5d' : credits <= 1 ? '#e0a052' : '#c9a84c' }}
+            >
+              {upgraded ? 'Unlimited' : `${credits} credit${credits !== 1 ? 's' : ''} left`}
             </span>
           </div>
-          <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
-            Lead Intelligence
-          </h1>
-          <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
-            Enter a target domain or keyword to discover and enrich leads.
-          </p>
         </div>
 
         {/* Search bar */}
@@ -316,9 +661,9 @@ export default function OraclePage() {
           </div>
           <button
             onClick={handleSearch}
-            disabled={loading || !query.trim()}
+            disabled={loading || !query.trim() || creditsExhausted}
             className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: '#c9a84c', color: '#0b1929' }}
+            style={{ background: creditsExhausted ? 'rgba(224,82,82,0.15)' : '#c9a84c', color: creditsExhausted ? '#e05252' : '#0b1929' }}
           >
             {loading ? (
               <Loader2 size={15} className="animate-spin" />
@@ -328,6 +673,43 @@ export default function OraclePage() {
             {loading ? 'Researching…' : 'Start Research'}
           </button>
         </div>
+
+        {/* Paywall banner */}
+        {creditsExhausted && (
+          <div
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 p-4 rounded-xl"
+            style={{
+              background: 'rgba(224,82,82,0.07)',
+              border: '1px solid rgba(224,82,82,0.3)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={18} style={{ color: '#e05252', flexShrink: 0, marginTop: 1 }} />
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#f0f4f8' }}>
+                  You have exhausted your free Neural Compute credits.
+                </p>
+                <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+                  Upgrade to Zeno Pro to unlock unlimited Oracle research runs.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setPricingOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold flex-shrink-0 transition-all"
+              style={{
+                background: 'rgba(201,168,76,0.18)',
+                border: '1px solid rgba(201,168,76,0.45)',
+                color: '#c9a84c',
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)')}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.18)')}
+            >
+              <Zap size={14} />
+              Upgrade to Continue
+            </button>
+          </div>
+        )}
 
         {/* Progress bar */}
         {loading && (
