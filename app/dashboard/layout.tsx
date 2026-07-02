@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -15,8 +15,16 @@ import {
   X,
   User,
   Plug,
+  Zap,
 } from 'lucide-react'
 import { NeuralFeed } from '@/components/neural-feed'
+import {
+  TokenProvider,
+  useTokenVault,
+  fmtTokens,
+  OPERATION_LABELS,
+  STARTER_TOKEN_CAPACITY,
+} from '@/components/token-context'
 
 const NAV_ITEMS = [
   { label: 'Command Center', href: '/dashboard', icon: LayoutDashboard },
@@ -27,6 +35,87 @@ const NAV_ITEMS = [
 ]
 
 const WORKSPACE_NAME = 'Acme Corp'
+
+// ── Token burndown chip ───────────────────────────────────────────────────
+// Rendered inside the top-bar; reads from the nearest TokenProvider.
+
+function TokenBurnChip() {
+  const { tokens, capacity, lastDeduction } = useTokenVault()
+  const pct = Math.max(0, Math.min((tokens / capacity) * 100, 100))
+  const isDanger = pct < 20
+  const isWarning = pct < 50 && !isDanger
+
+  // Flash the last deduction label for 3 s
+  const [flashLabel, setFlashLabel] = useState<string | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!lastDeduction) return
+    setFlashLabel(`-${lastDeduction.cost.toLocaleString()} · ${OPERATION_LABELS[lastDeduction.operation]}`)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setFlashLabel(null), 3000)
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [lastDeduction])
+
+  const barColor = isDanger
+    ? 'linear-gradient(90deg, #e05252, #c43a3a)'
+    : isWarning
+    ? 'linear-gradient(90deg, #e0a052, #c98030)'
+    : 'linear-gradient(90deg, #20b2aa, #178f88)'
+
+  return (
+    <div
+      className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg"
+      style={{
+        background: isDanger
+          ? 'rgba(224,82,82,0.07)'
+          : isWarning
+          ? 'rgba(224,160,82,0.07)'
+          : 'rgba(32,178,170,0.06)',
+        border: `1px solid ${
+          isDanger
+            ? 'rgba(224,82,82,0.2)'
+            : isWarning
+            ? 'rgba(224,160,82,0.2)'
+            : 'rgba(32,178,170,0.15)'
+        }`,
+        minWidth: 160,
+      }}
+    >
+      <Zap
+        size={11}
+        style={{ color: isDanger ? '#e05252' : isWarning ? '#e0a052' : '#20b2aa', flexShrink: 0 }}
+      />
+      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+        {flashLabel ? (
+          <p
+            className="text-[10px] font-mono truncate"
+            style={{ color: isDanger ? '#e05252' : isWarning ? '#e0a052' : '#20b2aa' }}
+          >
+            {flashLabel}
+          </p>
+        ) : (
+          <p
+            className="text-[10px] font-mono"
+            style={{ color: isDanger ? '#e05252' : isWarning ? '#e0a052' : '#7a95b0' }}
+          >
+            {fmtTokens(tokens)}
+            <span style={{ color: 'rgba(122,149,176,0.5)' }}>/{fmtTokens(capacity)} tkns</span>
+          </p>
+        )}
+        <div
+          className="w-full rounded-full overflow-hidden"
+          style={{ height: 3, background: 'rgba(122,149,176,0.15)' }}
+        >
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${pct}%`, background: barColor }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function DashboardLayout({
   children,
@@ -50,6 +139,7 @@ export default function DashboardLayout({
   const activePage = NAV_ITEMS.find((item) => item.href === pathname)?.label ?? 'Dashboard'
 
   return (
+    <TokenProvider>
     <div className="flex min-h-screen" style={{ background: '#0b1929' }}>
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -217,6 +307,14 @@ export default function DashboardLayout({
               style={{ background: 'rgba(201,168,76,0.15)' }}
             />
 
+            {/* Token burndown chip */}
+            <TokenBurnChip />
+
+            <div
+              className="h-4 w-px hidden md:block"
+              style={{ background: 'rgba(201,168,76,0.15)' }}
+            />
+
             {/* Neural Feed */}
             <NeuralFeed />
 
@@ -368,5 +466,6 @@ export default function DashboardLayout({
         </div>
       )}
     </div>
+    </TokenProvider>
   )
 }

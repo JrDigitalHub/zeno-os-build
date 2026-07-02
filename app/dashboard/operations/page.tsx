@@ -1,12 +1,22 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, X, KanbanSquare, ChevronRight, ChevronLeft, AlignLeft } from 'lucide-react'
+import DirectAgentTerminal from '@/components/direct-agent-terminal'
+import {
+  TRIAL_LIMIT,
+  TrialCreditBanner,
+  TrialLockOverlay,
+  StarterCreditBanner,
+} from '@/components/trial-gate'
+import { useTokenVault } from '@/components/token-context'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type Priority = 'Critical' | 'High' | 'Medium' | 'Low'
 type Status = 'backlog' | 'in-progress' | 'completed'
+type SubscriptionTier = 'Trial' | 'Starter' | 'Professional'
 
 type Task = {
   id: number
@@ -18,6 +28,11 @@ type Task = {
 }
 
 type Board = Record<Status, Task[]>
+
+// ── Mock subscription state ─────────────────────────────────────────────────
+// Change this to 'Starter' or 'Professional' to preview other tiers.
+
+const MOCK_TIER: SubscriptionTier = 'Trial'
 
 // ── Seed data ──────────────────────────────────────────────────────────────
 
@@ -77,10 +92,7 @@ function TaskCard({
   return (
     <div
       className="rounded-xl p-4 transition-all group"
-      style={{
-        background: '#0f2035',
-        border: '1px solid rgba(201,168,76,0.13)',
-      }}
+      style={{ background: '#0f2035', border: '1px solid rgba(201,168,76,0.13)' }}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <p className="text-sm font-semibold leading-snug text-balance" style={{ color: '#f0f4f8' }}>
@@ -150,7 +162,6 @@ function Column({
   const meta = COL_META[col]
   return (
     <div className="flex flex-col min-w-0">
-      {/* Column header */}
       <div
         className="flex items-center justify-between px-4 py-3 rounded-xl mb-3"
         style={{ background: meta.accent }}
@@ -168,8 +179,6 @@ function Column({
           {tasks.length}
         </span>
       </div>
-
-      {/* Cards */}
       <div className="flex flex-col gap-3">
         {tasks.map((task) => (
           <TaskCard key={task.id} task={task} col={col} onMove={onMove} />
@@ -195,7 +204,13 @@ function Column({
 const PRIORITIES: Priority[] = ['Critical', 'High', 'Medium', 'Low']
 let nextId = 100
 
-function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t: Task) => void }) {
+function CreateModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void
+  onCreate: (t: Task) => void
+}) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<Priority>('Medium')
@@ -234,7 +249,6 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t:
           boxShadow: '0 32px 64px rgba(0,0,0,0.5)',
         }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b"
           style={{ borderColor: 'rgba(201,168,76,0.1)' }}
@@ -249,8 +263,6 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t:
             <X size={16} />
           </button>
         </div>
-
-        {/* Form */}
         <div className="px-6 py-5 space-y-4">
           <div>
             <label className="block text-[10px] font-mono uppercase tracking-wider mb-1.5" style={{ color: '#7a95b0' }}>
@@ -267,7 +279,6 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t:
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(201,168,76,0.18)')}
             />
           </div>
-
           <div>
             <label className="block text-[10px] font-mono uppercase tracking-wider mb-1.5" style={{ color: '#7a95b0' }}>
               Description
@@ -283,7 +294,6 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t:
               onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(201,168,76,0.18)')}
             />
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-mono uppercase tracking-wider mb-1.5" style={{ color: '#7a95b0' }}>
@@ -296,9 +306,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t:
                 style={{ ...inputStyle, cursor: 'pointer' }}
               >
                 {PRIORITIES.map((p) => (
-                  <option key={p} value={p} style={{ background: '#0f2035' }}>
-                    {p}
-                  </option>
+                  <option key={p} value={p} style={{ background: '#0f2035' }}>{p}</option>
                 ))}
               </select>
             </div>
@@ -319,8 +327,6 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t:
             </div>
           </div>
         </div>
-
-        {/* Actions */}
         <div
           className="flex items-center justify-end gap-3 px-6 py-4 border-t"
           style={{ borderColor: 'rgba(201,168,76,0.1)' }}
@@ -351,15 +357,46 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (t:
 const COLS: Status[] = ['backlog', 'in-progress', 'completed']
 
 export default function OperationsPage() {
+  const router = useRouter()
+  const { consumeTokens } = useTokenVault()
+
   const [board, setBoard] = useState<Board>(INITIAL_BOARD)
   const [modalOpen, setModalOpen] = useState(false)
 
+  const subscriptionTier: SubscriptionTier = MOCK_TIER
+
+  // ── Independent COO trial counter ──────────────────────────────────────
+  // Counts successful task executions / kanban updates on Trial tier.
+  // Gate fires when cooTaskCount reaches TRIAL_LIMIT (i.e. on the 4th attempt).
+  const [cooTaskCount, setCooTaskCount] = useState(0)
+
+  const isTrialLocked = subscriptionTier === 'Trial' && cooTaskCount >= TRIAL_LIMIT
+
+  /** Increment the COO counter + consume tokens. Returns true if the gate fires. */
+  function recordCooAction(): boolean {
+    if (subscriptionTier !== 'Trial') {
+      consumeTokens('COO_TASK')
+      return false
+    }
+    if (cooTaskCount >= TRIAL_LIMIT) {
+      // Gate already active — block silently (overlay is already visible)
+      return true
+    }
+    setCooTaskCount((c) => c + 1)
+    consumeTokens('COO_TASK')
+    return false
+  }
+
+  function goToBilling() {
+    router.push('/dashboard/billing')
+  }
+
   function moveTask(task: Task, from: Status, dir: 'forward' | 'back') {
+    if (recordCooAction()) return
     const cols: Status[] = ['backlog', 'in-progress', 'completed']
     const fromIdx = cols.indexOf(from)
     const to = cols[dir === 'forward' ? fromIdx + 1 : fromIdx - 1]
     if (!to) return
-
     setBoard((prev) => ({
       ...prev,
       [from]: prev[from].filter((t) => t.id !== task.id),
@@ -368,6 +405,7 @@ export default function OperationsPage() {
   }
 
   function addTask(task: Task) {
+    recordCooAction()
     setBoard((prev) => ({ ...prev, backlog: [task, ...prev.backlog] }))
   }
 
@@ -379,38 +417,90 @@ export default function OperationsPage() {
         <CreateModal onClose={() => setModalOpen(false)} onCreate={addTask} />
       )}
 
-      <div className="p-6">
-        {/* Page header */}
-        <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <KanbanSquare size={16} style={{ color: '#c9a84c' }} />
-              <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
-                COO · Operations Board
-              </span>
+      <div className="flex h-[calc(100vh-57px)]">
+        {/* ── 70% main content ── */}
+        <div className="flex-1 overflow-y-auto min-w-0">
+          <div className="p-6">
+
+            {/* Trial banner — shown while under limit */}
+            {subscriptionTier === 'Trial' && cooTaskCount < TRIAL_LIMIT && (
+              <TrialCreditBanner
+                used={cooTaskCount}
+                agentName="COO"
+                actionLabel="COO Tasks"
+                onDevIncrease={() => recordCooAction()}
+                onUpgrade={goToBilling}
+              />
+            )}
+
+            {/* Starter banner */}
+            {subscriptionTier === 'Starter' && (
+              <StarterCreditBanner used={15} total={50} agentName="COO" />
+            )}
+
+            {/* Page header */}
+            <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <KanbanSquare size={16} style={{ color: '#c9a84c' }} />
+                  <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
+                    COO · Operations Board
+                  </span>
+                </div>
+                <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
+                  Task Management
+                </h1>
+                <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+                  {total} active tasks across {COLS.length} stages
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (isTrialLocked) return
+                  setModalOpen(true)
+                }}
+                disabled={isTrialLocked}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: '#c9a84c', color: '#0b1929' }}
+              >
+                <Plus size={15} />
+                Create Task
+              </button>
             </div>
-            <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
-              Task Management
-            </h1>
-            <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
-              {total} active tasks across {COLS.length} stages
-            </p>
+
+            {/* Kanban board — blurred + locked when trial gate fires */}
+            <div className="relative">
+              {isTrialLocked && (
+                <TrialLockOverlay
+                  agentName="COO"
+                  actionLabel="COO tasks"
+                  onUpgrade={goToBilling}
+                />
+              )}
+
+              <div
+                className="grid grid-cols-1 md:grid-cols-3 gap-4"
+                style={
+                  isTrialLocked
+                    ? { filter: 'blur(5px)', pointerEvents: 'none', userSelect: 'none' }
+                    : {}
+                }
+              >
+                {COLS.map((col) => (
+                  <Column key={col} col={col} tasks={board[col]} onMove={moveTask} />
+                ))}
+              </div>
+            </div>
+
           </div>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all"
-            style={{ background: '#c9a84c', color: '#0b1929' }}
-          >
-            <Plus size={15} />
-            Create Task
-          </button>
         </div>
 
-        {/* Kanban board */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {COLS.map((col) => (
-            <Column key={col} col={col} tasks={board[col]} onMove={moveTask} />
-          ))}
+        {/* ── 30% terminal ── */}
+        <div className="w-[30%] flex-shrink-0">
+          <DirectAgentTerminal
+            agentRole="COO"
+            onCommandSent={() => recordCooAction()}
+          />
         </div>
       </div>
     </>

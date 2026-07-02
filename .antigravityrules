@@ -1,0 +1,8 @@
+# Zeno OS Frontend Rules
+- Stack: Next.js 15 (App Router), React 19, Tailwind CSS v4, shadcn/ui.
+- Backend: FastAPI (Python) endpoints returning JSON.
+- AI Engine: Google Gemini 3.1 Flash.
+- Auth: Supabase.
+- Code Style: Use TypeScript strictly. Do not use `any`. Use functional components and modern React hooks (`useState`, `useEffect`).
+- Component Rules: Keep components small. If a file gets too large, break the UI into a `components/` folder.
+- Access Logic: Support 'Trial' (strict gating via blur overlays) and 'Starter' (metered daily usage counters) tiers.

@@ -21,7 +21,9 @@ export default function LoginPage() {
     await new Promise((resolve) => setTimeout(resolve, 1500))
 
     setIsLoading(false)
-    router.push('/onboarding')
+    router.replace('/dashboard')
+    // Hard redirect fallback — ensures navigation even if client-side router silently fails
+    window.location.href = '/dashboard'
   }
 
   return (

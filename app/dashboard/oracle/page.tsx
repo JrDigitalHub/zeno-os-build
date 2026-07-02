@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import DirectAgentTerminal from '@/components/direct-agent-terminal'
 import {
   Search,
   X,
@@ -232,6 +233,7 @@ Zeno OS Team`
 }
 
 // ── Oracle Pricing Modal (lightweight, self-contained) ─────────────────────
+// Mirrors the global 3-tier pricing matrix from /dashboard/billing exactly.
 
 type Region = 'nigeria' | 'world'
 type ModalStep = 'pricing' | 'checkout' | 'success'
@@ -240,18 +242,32 @@ const ORACLE_PLANS = [
   {
     key: 'starter' as const,
     name: 'Starter',
-    priceUSD: '$49',
-    priceNGN: '₦75,000',
+    priceUSD: '$19',
+    priceNGN: '₦14,999',
     tagline: 'For growing SMEs',
-    features: ['500 Oracle Credits/mo', 'Basic COO Kanban', 'CFO Ledger (20 uploads)', '3 team seats'],
+    highlighted: false,
+    badge: undefined as string | undefined,
+    features: ['50 Daily Tasks', 'Basic COO Kanban', 'Manual CFO Uploads', 'Email support', '2 team seats'],
+  },
+  {
+    key: 'professional' as const,
+    name: 'Professional',
+    priceUSD: '$99',
+    priceNGN: '₦99,999',
+    tagline: 'Most powerful for teams',
+    highlighted: true,
+    badge: 'Most Popular' as string | undefined,
+    features: ['Unlimited Oracle Credits', 'Automated CFO Bank Sync', 'Proactive Agent Alerts', 'Priority support', '10 team seats'],
   },
   {
     key: 'enterprise' as const,
     name: 'Enterprise',
-    priceUSD: '$199',
-    priceNGN: '₦300,000',
+    priceUSD: 'Contact Team',
+    priceNGN: 'Contact Team',
     tagline: 'Unlimited scale',
-    features: ['Unlimited Oracle Credits', 'Priority neural processing', 'Advanced CFO automation', 'Dedicated support'],
+    highlighted: false,
+    badge: undefined as string | undefined,
+    features: ['Unlimited Neural Compute', 'Custom API Generation', 'Dedicated Support', 'Unlimited team seats', 'Custom SLA'],
   },
 ]
 
@@ -264,7 +280,7 @@ function OraclePricingModal({
 }) {
   const router = useRouter()
   const [region, setRegion] = useState<Region>('world')
-  const [selected, setSelected] = useState(ORACLE_PLANS[1])
+  const [selected, setSelected] = useState(ORACLE_PLANS[1]) // default: Professional
   const [step, setStep] = useState<ModalStep>('pricing')
   const [paying, setPaying] = useState(false)
   const isNigeria = region === 'nigeria'
@@ -284,7 +300,7 @@ function OraclePricingModal({
       onClick={(e) => e.target === e.currentTarget && step !== 'success' && onClose()}
     >
       <div
-        className="w-full max-w-xl rounded-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-3xl rounded-2xl overflow-hidden flex flex-col"
         style={{
           background: '#0d1e30',
           border: '1px solid rgba(201,168,76,0.22)',
@@ -353,52 +369,75 @@ function OraclePricingModal({
               </div>
             </div>
 
-            {/* Plan cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
+            {/* Plan cards — 3-tier grid matching global pricing */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6">
               {ORACLE_PLANS.map((plan) => {
                 const isSel = selected.key === plan.key
+                const isPro = plan.key === 'professional'
+                const displayPrice = isNigeria ? plan.priceNGN : plan.priceUSD
+                const isContact = displayPrice === 'Contact Team'
                 return (
                   <button
                     key={plan.key}
                     onClick={() => setSelected(plan)}
-                    className="flex flex-col gap-3 p-5 rounded-xl text-left transition-all"
+                    className="flex flex-col gap-3 p-5 rounded-xl text-left transition-all relative"
                     style={{
-                      background: isSel ? 'rgba(201,168,76,0.07)' : 'rgba(201,168,76,0.02)',
-                      border: plan.key === 'enterprise'
-                        ? `1px solid ${isSel ? '#c9a84c' : 'rgba(201,168,76,0.35)'}`
+                      background: isPro
+                        ? isSel ? 'rgba(32,178,170,0.08)' : 'rgba(32,178,170,0.04)'
+                        : isSel ? 'rgba(201,168,76,0.07)' : 'rgba(201,168,76,0.02)',
+                      border: isPro
+                        ? `1.5px solid ${isSel ? 'rgba(32,178,170,0.8)' : 'rgba(32,178,170,0.45)'}`
                         : `1px solid ${isSel ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.1)'}`,
+                      boxShadow: isPro ? '0 0 30px rgba(32,178,170,0.1)' : 'none',
                     }}
                   >
+                    {/* Most Popular badge */}
+                    {plan.badge && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <span
+                          className="flex items-center gap-1 px-3 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider whitespace-nowrap"
+                          style={{
+                            background: 'linear-gradient(135deg, #c9a84c, #a88030)',
+                            color: '#0b1929',
+                            boxShadow: '0 2px 12px rgba(201,168,76,0.4)',
+                          }}
+                        >
+                          {plan.badge}
+                        </span>
+                      </div>
+                    )}
+
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold" style={{ color: '#f0f4f8' }}>{plan.name}</p>
-                          {plan.key === 'enterprise' && (
-                            <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full"
-                              style={{ background: 'rgba(201,168,76,0.15)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.3)' }}>
-                              Recommended
-                            </span>
-                          )}
-                        </div>
+                        <p className="text-sm font-bold" style={{ color: isPro ? '#20b2aa' : '#f0f4f8' }}>{plan.name}</p>
                         <p className="text-[11px] font-mono mt-0.5" style={{ color: '#7a95b0' }}>{plan.tagline}</p>
                       </div>
                       {isSel && (
-                        <div className="w-5 h-5 rounded-full flex items-center justify-center"
-                          style={{ background: 'rgba(201,168,76,0.2)', border: '1px solid #c9a84c' }}>
-                          <Check size={11} style={{ color: '#c9a84c' }} />
+                        <div
+                          className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{
+                            background: isPro ? 'rgba(32,178,170,0.2)' : 'rgba(201,168,76,0.2)',
+                            border: `1px solid ${isPro ? '#20b2aa' : '#c9a84c'}`,
+                          }}
+                        >
+                          <Check size={11} style={{ color: isPro ? '#20b2aa' : '#c9a84c' }} />
                         </div>
                       )}
                     </div>
+
                     <div className="flex items-end gap-1">
-                      <span className="text-2xl font-bold" style={{ color: '#c9a84c' }}>
-                        {isNigeria ? plan.priceNGN : plan.priceUSD}
+                      <span className="text-2xl font-bold" style={{ color: isPro ? '#20b2aa' : '#c9a84c' }}>
+                        {displayPrice}
                       </span>
-                      <span className="text-xs font-mono pb-0.5" style={{ color: '#7a95b0' }}>/mo</span>
+                      {!isContact && (
+                        <span className="text-xs font-mono pb-0.5" style={{ color: '#7a95b0' }}>/mo</span>
+                      )}
                     </div>
+
                     <ul className="flex flex-col gap-1.5">
                       {plan.features.map((f) => (
                         <li key={f} className="flex items-start gap-2">
-                          <Check size={11} style={{ color: '#c9a84c', marginTop: 3, flexShrink: 0 }} />
+                          <Check size={11} style={{ color: isPro ? '#20b2aa' : '#c9a84c', marginTop: 3, flexShrink: 0 }} />
                           <span className="text-[12px] font-mono" style={{ color: '#c0cdd8' }}>{f}</span>
                         </li>
                       ))}
@@ -409,17 +448,57 @@ function OraclePricingModal({
             </div>
 
             <div className="px-6 pb-6 flex flex-col gap-3">
-              <button
-                onClick={() => setStep('checkout')}
-                className="w-full py-3 rounded-xl text-sm font-bold transition-all"
-                style={{ background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)')}
-              >
-                Select {selected.name}
-              </button>
+              {selected.key === 'enterprise' ? (
+                // Enterprise: launch native mail client
+                <a
+                  href="mailto:info@jrdigitalhubltd.com?subject=Zeno%20OS%20Enterprise%20Enquiry"
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all text-center"
+                  style={{
+                    background: 'rgba(32,178,170,0.12)',
+                    border: '1.5px solid rgba(32,178,170,0.45)',
+                    color: '#20b2aa',
+                    display: 'block',
+                  }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background = 'rgba(32,178,170,0.22)')
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background = 'rgba(32,178,170,0.12)')
+                  }
+                >
+                  Contact Our Enterprise Team
+                </a>
+              ) : (
+                <button
+                  onClick={() => setStep('checkout')}
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+                  style={
+                    selected.key === 'professional'
+                      ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
+                      : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                  }
+                  onMouseEnter={(e) => {
+                    if (selected.key === 'professional') {
+                      (e.currentTarget as HTMLElement).style.background = '#d4b560'
+                    } else {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selected.key === 'professional') {
+                      (e.currentTarget as HTMLElement).style.background = '#c9a84c'
+                    } else {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
+                    }
+                  }}
+                >
+                  Select {selected.name}
+                </button>
+              )}
               <p className="text-center text-[11px] font-mono" style={{ color: '#7a95b0' }}>
-                No contracts. Cancel any time. Billed monthly.
+                {selected.key === 'enterprise'
+                  ? 'Custom contracts, SLAs, and onboarding available.'
+                  : 'No contracts. Cancel any time. Billed monthly.'}
               </p>
             </div>
           </div>
@@ -572,7 +651,9 @@ export default function OraclePage() {
   }
 
   return (
-    <>
+    <div className="flex h-[calc(100vh-57px)]">
+      {/* ── 70% main content ── */}
+      <div className="flex-1 overflow-y-auto min-w-0">
       {modal.open && modal.lead && (
         <DraftModal lead={modal.lead} onClose={() => setModal({ open: false, lead: null })} />
       )}
@@ -856,6 +937,12 @@ export default function OraclePage() {
           </div>
         )}
       </div>
-    </>
+      </div>
+
+      {/* ── 30% terminal ── */}
+      <div className="w-[30%] flex-shrink-0">
+        <DirectAgentTerminal agentRole="Oracle" />
+      </div>
+    </div>
   )
 }

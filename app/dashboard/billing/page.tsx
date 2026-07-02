@@ -13,12 +13,13 @@ import {
   Loader2,
   ChevronLeft,
   ShieldCheck,
+  Star,
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type Region = 'nigeria' | 'world'
-type PlanKey = 'starter' | 'enterprise'
+type PlanKey = 'starter' | 'professional' | 'enterprise'
 type ModalStep = 'pricing' | 'checkout' | 'success'
 
 interface Invoice {
@@ -36,6 +37,8 @@ interface Plan {
   priceNGN: string
   tagline: string
   features: string[]
+  highlighted?: boolean
+  badge?: string
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -51,30 +54,45 @@ const PLANS: Plan[] = [
   {
     key: 'starter',
     name: 'Starter',
-    priceUSD: '$49',
-    priceNGN: '₦75,000',
+    priceUSD: '$19',
+    priceNGN: '₦14,999',
     tagline: 'For growing SMEs',
     features: [
-      '500 Oracle Compute Credits/mo',
-      'Basic COO Kanban automation',
-      'CFO Ledger ingestion (20 uploads)',
+      '50 Daily Tasks',
+      'Basic COO Kanban',
+      'Manual CFO Uploads',
       'Email support',
-      '3 team seats',
+      '2 team seats',
+    ],
+  },
+  {
+    key: 'professional',
+    name: 'Professional',
+    priceUSD: '$99',
+    priceNGN: '₦99,999',
+    tagline: 'Most powerful for teams',
+    highlighted: true,
+    badge: 'Most Popular',
+    features: [
+      'Unlimited Oracle Credits',
+      'Automated CFO Bank Sync',
+      'Proactive Agent Alerts',
+      'Priority support',
+      '10 team seats',
     ],
   },
   {
     key: 'enterprise',
     name: 'Enterprise',
-    priceUSD: '$199',
-    priceNGN: '₦300,000',
+    priceUSD: 'Contact Team',
+    priceNGN: 'Contact Team',
     tagline: 'Unlimited scale',
     features: [
-      'Unlimited Oracle Compute Credits',
-      'Priority neural processing',
-      'Advanced CFO forecasting & automation',
-      'Dedicated account manager',
+      'Unlimited Neural Compute',
+      'Custom API Generation',
+      'Dedicated Support',
       'Unlimited team seats',
-      'Custom API rate limits',
+      'Custom SLA',
     ],
   },
 ]
@@ -141,13 +159,12 @@ function PricingModal({
 }) {
   const router = useRouter()
   const [region, setRegion] = useState<Region>('world')
-  const [selectedPlan, setSelectedPlan] = useState<Plan>(PLANS[1]) // default Enterprise
+  const [selectedPlan, setSelectedPlan] = useState<Plan>(PLANS[1]) // default Professional
   const [step, setStep] = useState<ModalStep>('pricing')
   const [paying, setPaying] = useState(false)
 
   const isNigeria = region === 'nigeria'
   const price = isNigeria ? selectedPlan.priceNGN : selectedPlan.priceUSD
-  const period = isNigeria ? '/mo' : '/mo'
 
   async function handlePay() {
     setPaying(true)
@@ -165,7 +182,7 @@ function PricingModal({
       onClick={(e) => e.target === e.currentTarget && step !== 'success' && onClose()}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-3xl rounded-2xl overflow-hidden flex flex-col"
         style={{
           background: '#0d1e30',
           border: '1px solid rgba(201,168,76,0.22)',
@@ -198,7 +215,7 @@ function PricingModal({
                 {step === 'pricing'
                   ? 'Choose the plan that fits your business.'
                   : step === 'checkout'
-                  ? `${selectedPlan.name} · Monthly · ${price}${period}`
+                  ? `${selectedPlan.name} · Monthly · ${price}/mo`
                   : 'Your subscription is now active.'}
               </p>
             </div>
@@ -249,38 +266,60 @@ function PricingModal({
               </div>
             </div>
 
-            {/* Plan cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
+            {/* 3-tier plan cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6">
               {PLANS.map((plan) => {
                 const isSelected = selectedPlan.key === plan.key
+                const isPro = plan.key === 'professional'
                 const displayPrice = isNigeria ? plan.priceNGN : plan.priceUSD
+
                 return (
                   <button
                     key={plan.key}
                     onClick={() => setSelectedPlan(plan)}
-                    className="flex flex-col gap-4 p-5 rounded-xl text-left transition-all"
+                    className="flex flex-col gap-4 p-5 rounded-xl text-left transition-all relative"
                     style={{
-                      background: isSelected ? 'rgba(201,168,76,0.07)' : 'rgba(201,168,76,0.02)',
-                      border: plan.key === 'enterprise'
-                        ? `1px solid ${isSelected ? '#c9a84c' : 'rgba(201,168,76,0.35)'}`
+                      background: isPro
+                        ? isSelected
+                          ? 'rgba(32,178,170,0.08)'
+                          : 'rgba(32,178,170,0.04)'
+                        : isSelected
+                        ? 'rgba(201,168,76,0.07)'
+                        : 'rgba(201,168,76,0.02)',
+                      border: isPro
+                        ? `1.5px solid ${isSelected ? 'rgba(32,178,170,0.8)' : 'rgba(32,178,170,0.45)'}`
                         : `1px solid ${isSelected ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.1)'}`,
-                      boxShadow: plan.key === 'enterprise' ? '0 0 24px rgba(201,168,76,0.08)' : 'none',
+                      boxShadow: isPro
+                        ? '0 0 30px rgba(32,178,170,0.1)'
+                        : 'none',
                     }}
                   >
+                    {/* Most Popular badge */}
+                    {plan.badge && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                        <span
+                          className="flex items-center gap-1 px-3 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase tracking-wider whitespace-nowrap"
+                          style={{
+                            background: 'linear-gradient(135deg, #c9a84c, #a88030)',
+                            color: '#0b1929',
+                            boxShadow: '0 2px 12px rgba(201,168,76,0.4)',
+                          }}
+                        >
+                          <Star size={8} />
+                          {plan.badge}
+                        </span>
+                      </div>
+                    )}
+
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold" style={{ color: '#f0f4f8' }}>
+                          <p
+                            className="text-sm font-bold"
+                            style={{ color: isPro ? '#20b2aa' : '#f0f4f8' }}
+                          >
                             {plan.name}
                           </p>
-                          {plan.key === 'enterprise' && (
-                            <span
-                              className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full"
-                              style={{ background: 'rgba(201,168,76,0.15)', color: '#c9a84c', border: '1px solid rgba(201,168,76,0.3)' }}
-                            >
-                              Recommended
-                            </span>
-                          )}
                         </div>
                         <p className="text-[11px] font-mono mt-0.5" style={{ color: '#7a95b0' }}>
                           {plan.tagline}
@@ -289,26 +328,43 @@ function PricingModal({
                       {isSelected && (
                         <div
                           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: 'rgba(201,168,76,0.2)', border: '1px solid #c9a84c' }}
+                          style={{
+                            background: isPro ? 'rgba(32,178,170,0.2)' : 'rgba(201,168,76,0.2)',
+                            border: `1px solid ${isPro ? '#20b2aa' : '#c9a84c'}`,
+                          }}
                         >
-                          <Check size={11} style={{ color: '#c9a84c' }} />
+                          <Check size={11} style={{ color: isPro ? '#20b2aa' : '#c9a84c' }} />
                         </div>
                       )}
                     </div>
 
+                    {/* Price */}
                     <div className="flex items-end gap-1">
-                      <span className="text-2xl font-bold" style={{ color: '#c9a84c' }}>
+                      <span
+                        className="text-2xl font-bold"
+                        style={{ color: isPro ? '#20b2aa' : '#c9a84c' }}
+                      >
                         {displayPrice}
                       </span>
-                      <span className="text-xs font-mono pb-0.5" style={{ color: '#7a95b0' }}>
-                        /mo
-                      </span>
+                      {displayPrice !== 'Contact Team' && (
+                        <span className="text-xs font-mono pb-0.5" style={{ color: '#7a95b0' }}>
+                          /mo
+                        </span>
+                      )}
                     </div>
 
+                    {/* Features */}
                     <ul className="flex flex-col gap-1.5">
                       {plan.features.map((f) => (
                         <li key={f} className="flex items-start gap-2">
-                          <Check size={11} style={{ color: '#c9a84c', marginTop: 3, flexShrink: 0 }} />
+                          <Check
+                            size={11}
+                            style={{
+                              color: isPro ? '#20b2aa' : '#c9a84c',
+                              marginTop: 3,
+                              flexShrink: 0,
+                            }}
+                          />
                           <span className="text-[12px] font-mono" style={{ color: '#c0cdd8' }}>
                             {f}
                           </span>
@@ -320,22 +376,67 @@ function PricingModal({
               })}
             </div>
 
+            {/* CTA */}
             <div className="px-6 pb-6 flex flex-col gap-3">
-              <button
-                onClick={() => setStep('checkout')}
-                className="w-full py-3 rounded-xl text-sm font-bold transition-all"
-                style={{
-                  background: 'rgba(201,168,76,0.2)',
-                  border: '1px solid rgba(201,168,76,0.5)',
-                  color: '#c9a84c',
-                }}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)')}
-              >
-                Select {selectedPlan.name}
-              </button>
+              {selectedPlan.key === 'enterprise' ? (
+                // Enterprise: open native mail client
+                <a
+                  href="mailto:info@jrdigitalhubltd.com?subject=Zeno%20OS%20Enterprise%20Enquiry"
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all text-center"
+                  style={{
+                    background: 'rgba(32,178,170,0.12)',
+                    border: '1.5px solid rgba(32,178,170,0.45)',
+                    color: '#20b2aa',
+                    display: 'block',
+                  }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background = 'rgba(32,178,170,0.22)')
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background = 'rgba(32,178,170,0.12)')
+                  }
+                >
+                  Contact Our Enterprise Team
+                </a>
+              ) : (
+                <button
+                  onClick={() => setStep('checkout')}
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+                  style={
+                    selectedPlan.key === 'professional'
+                      ? {
+                          background: '#c9a84c',
+                          color: '#0b1929',
+                          boxShadow: '0 4px 20px rgba(201,168,76,0.3)',
+                        }
+                      : {
+                          background: 'rgba(201,168,76,0.2)',
+                          border: '1px solid rgba(201,168,76,0.5)',
+                          color: '#c9a84c',
+                        }
+                  }
+                  onMouseEnter={(e) => {
+                    if (selectedPlan.key === 'professional') {
+                      (e.currentTarget as HTMLElement).style.background = '#d4b560'
+                    } else {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedPlan.key === 'professional') {
+                      (e.currentTarget as HTMLElement).style.background = '#c9a84c'
+                    } else {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
+                    }
+                  }}
+                >
+                  Select {selectedPlan.name}
+                </button>
+              )}
               <p className="text-center text-[11px] font-mono" style={{ color: '#7a95b0' }}>
-                No contracts. Cancel any time. Billed monthly.
+                {selectedPlan.key === 'enterprise'
+                  ? 'Custom contracts, SLAs, and onboarding available.'
+                  : 'No contracts. Cancel any time. Billed monthly.'}
               </p>
             </div>
           </div>
@@ -510,7 +611,7 @@ export default function BillingPage() {
           </span>
         </div>
         <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
-          Billing & Metered Usage
+          Billing &amp; Metered Usage
         </h1>
         <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
           Monitor your compute consumption and manage your subscription.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   BookOpen,
   ArrowDownLeft,
@@ -17,10 +18,19 @@ import {
   CheckCircle2,
   Loader2,
 } from 'lucide-react'
+import DirectAgentTerminal from '@/components/direct-agent-terminal'
+import {
+  TRIAL_LIMIT,
+  TrialCreditBanner,
+  TrialLockOverlay,
+  StarterCreditBanner,
+} from '@/components/trial-gate'
+import { useTokenVault } from '@/components/token-context'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type TxType = 'incoming' | 'outgoing'
+type SubscriptionTier = 'Trial' | 'Starter' | 'Professional'
 
 type Transaction = {
   id: string
@@ -30,6 +40,10 @@ type Transaction = {
   amount: number
   type: TxType
 }
+
+// ── Mock subscription state (swap to test tiers) ────────────────────────────
+
+const MOCK_TIER: SubscriptionTier = 'Trial'
 
 // ── Seed data ──────────────────────────────────────────────────────────────
 
@@ -142,7 +156,14 @@ interface IngestionSummary {
   text: boolean
 }
 
-function IngestionModal({ onClose }: { onClose: () => void }) {
+function IngestionModal({
+  onClose,
+  onProcessed,
+}: {
+  onClose: () => void
+  /** Called when data processing completes — allows parent to count the upload */
+  onProcessed: () => void
+}) {
   const [tab, setTab] = useState<IngestionTab>('file')
   const [dragOver, setDragOver] = useState(false)
   const [files, setFiles] = useState<File[]>([])
@@ -176,6 +197,7 @@ function IngestionModal({ onClose }: { onClose: () => void }) {
       text: rawText.trim().length > 0,
     })
     setState('done')
+    onProcessed() // record the upload against the trial counter + token vault
   }
 
   const hasInput = files.length > 0 || url.trim() !== '' || rawText.trim() !== ''
@@ -466,11 +488,49 @@ function IngestionModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+
 // ── Main page ──────────────────────────────────────────────────────────────
 
 export default function FinancialsPage() {
+  const router = useRouter()
+  const { consumeTokens } = useTokenVault()
+
   const [filter, setFilter] = useState<FilterType>('all')
   const [ingestionOpen, setIngestionOpen] = useState(false)
+
+  // Mock subscription tier — change MOCK_TIER above to test
+  const subscriptionTier: SubscriptionTier = MOCK_TIER
+
+  // ── Independent CFO upload counter ─────────────────────────────────────
+  // Counts successful file/ledger uploads on Trial tier.
+  // Gate fires when cfoUploadCount reaches TRIAL_LIMIT (i.e. on the 4th attempt).
+  const [cfoUploadCount, setCfoUploadCount] = useState(0)
+
+  const isTrialLocked = subscriptionTier === 'Trial' && cfoUploadCount >= TRIAL_LIMIT
+
+  /** Called after ingestion modal completes processing. */
+  function recordCfoUpload() {
+    if (subscriptionTier === 'Trial') {
+      setCfoUploadCount((c) => Math.min(c + 1, TRIAL_LIMIT))
+    }
+    consumeTokens('CFO_UPLOAD')
+  }
+
+  function goToBilling() {
+    router.push('/dashboard/billing')
+  }
+
+  /** Open ingestion modal or show gate if locked */
+  function handleNewData() {
+    if (isTrialLocked) {
+      // Gate is already visible via the overlay — no-op, overlay handles it
+      return
+    }
+    if (subscriptionTier === 'Trial' && cfoUploadCount >= TRIAL_LIMIT) {
+      return
+    }
+    setIngestionOpen(true)
+  }
 
   const visible = useMemo(
     () =>
@@ -496,204 +556,263 @@ export default function FinancialsPage() {
   )
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Page header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <BookOpen size={16} style={{ color: '#c9a84c' }} />
-            <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
-              CFO · Financial Ledger
-            </span>
-          </div>
-          <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
-            Cash Flow &amp; Transactions
-          </h1>
-          <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
-            Showing {visible.length} of {ALL_TRANSACTIONS.length} transactions
-          </p>
-        </div>
-        <button
-          onClick={() => setIngestionOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold flex-shrink-0 transition-all"
-          style={{
-            background: 'rgba(201,168,76,0.12)',
-            border: '1px solid rgba(201,168,76,0.3)',
-            color: '#c9a84c',
-          }}
-          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)')}
-          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.12)')}
-        >
-          <Plus size={14} />
-          New Data
-        </button>
-      </div>
+    <div className="flex h-[calc(100vh-57px)]">
+      {/* ── 70% main content ── */}
+      <div className="flex-1 overflow-y-auto min-w-0">
+        <div className="p-6 max-w-full">
 
-      {ingestionOpen && <IngestionModal onClose={() => setIngestionOpen(false)} />}
+          {/* Trial banner — shown while under limit */}
+          {subscriptionTier === 'Trial' && cfoUploadCount < TRIAL_LIMIT && (
+            <TrialCreditBanner
+              used={cfoUploadCount}
+              agentName="CFO"
+              actionLabel="CFO Uploads"
+              onDevIncrease={recordCfoUpload}
+              onUpgrade={goToBilling}
+            />
+          )}
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <SummaryCard
-          label="Net Balance"
-          value={`${totalBalance >= 0 ? '+' : '-'}${fmt(totalBalance)}`}
-          sub={`Based on ${visible.length} visible transactions`}
-          icon={Wallet}
-          color={totalBalance >= 0 ? '#c9a84c' : '#e05252'}
-          bg={totalBalance >= 0 ? 'rgba(201,168,76,0.1)' : 'rgba(224,82,82,0.1)'}
-        />
-        <SummaryCard
-          label="Total Incoming"
-          value={`+${fmt(totalIncoming)}`}
-          sub={`${visible.filter((t) => t.type === 'incoming').length} inbound transactions`}
-          icon={TrendingUp}
-          color="#4a9c5d"
-          bg="rgba(74,156,93,0.1)"
-        />
-        <SummaryCard
-          label="Total Outgoing"
-          value={`-${fmt(totalOutgoing)}`}
-          sub={`${visible.filter((t) => t.type === 'outgoing').length} outbound transactions`}
-          icon={TrendingDown}
-          color="#e05252"
-          bg="rgba(224,82,82,0.1)"
-        />
-      </div>
+          {/* Starter banner */}
+          {subscriptionTier === 'Starter' && (
+            <StarterCreditBanner used={15} total={50} agentName="CFO" />
+          )}
 
-      {/* Ledger table */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ border: '1px solid rgba(201,168,76,0.15)' }}
-      >
-        {/* Table controls */}
-        <div
-          className="flex items-center justify-between px-5 py-3.5 border-b"
-          style={{
-            background: '#0f2035',
-            borderColor: 'rgba(201,168,76,0.1)',
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <Filter size={13} style={{ color: '#7a95b0' }} />
-            <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: '#7a95b0' }}>
-              Filter
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FilterPill label="All" active={filter === 'all'} onClick={() => setFilter('all')} />
-            <FilterPill label="Incoming" active={filter === 'incoming'} onClick={() => setFilter('incoming')} />
-            <FilterPill label="Outgoing" active={filter === 'outgoing'} onClick={() => setFilter('outgoing')} />
-          </div>
-        </div>
-
-        {/* Column headers */}
-        <div
-          className="grid px-5 py-2.5 text-[10px] font-mono uppercase tracking-wider"
-          style={{
-            background: '#0f2035',
-            color: '#7a95b0',
-            gridTemplateColumns: '1fr 2fr 2fr 1fr 1fr',
-            borderBottom: '1px solid rgba(201,168,76,0.08)',
-          }}
-        >
-          <span>Txn ID</span>
-          <span>Date</span>
-          <span>Description</span>
-          <span>Category</span>
-          <span className="text-right">Amount</span>
-        </div>
-
-        {/* Rows */}
-        {visible.map((tx, i) => {
-          const isIn = tx.type === 'incoming'
-          return (
-            <div
-              key={tx.id}
-              className="grid px-5 py-3.5 items-center transition-colors"
-              style={{
-                gridTemplateColumns: '1fr 2fr 2fr 1fr 1fr',
-                background: i % 2 === 0 ? '#0d1e30' : 'rgba(15,32,53,0.55)',
-                borderBottom: i < visible.length - 1 ? '1px solid rgba(201,168,76,0.05)' : 'none',
-              }}
-            >
-              {/* Txn ID */}
-              <span className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>
-                {tx.id}
-              </span>
-
-              {/* Date */}
-              <span className="text-xs" style={{ color: '#c0cdd8' }}>
-                {tx.date}
-              </span>
-
-              {/* Description */}
-              <span className="text-xs font-medium pr-4 truncate" style={{ color: '#f0f4f8' }}>
-                {tx.description}
-              </span>
-
-              {/* Category */}
-              <span
-                className="text-[10px] font-mono px-2 py-0.5 rounded-full w-fit"
-                style={{
-                  background: 'rgba(122,149,176,0.1)',
-                  color: '#7a95b0',
-                }}
-              >
-                {tx.category}
-              </span>
-
-              {/* Amount */}
-              <div className="flex items-center justify-end gap-1.5">
-                {isIn ? (
-                  <ArrowDownLeft size={12} style={{ color: '#4a9c5d', flexShrink: 0 }} />
-                ) : (
-                  <ArrowUpRight size={12} style={{ color: '#e05252', flexShrink: 0 }} />
-                )}
-                <span
-                  className="text-sm font-semibold font-mono"
-                  style={{ color: isIn ? '#4a9c5d' : '#e05252' }}
-                >
-                  {isIn ? '+' : '-'}{fmt(tx.amount)}
+          {/* Page header */}
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <BookOpen size={16} style={{ color: '#c9a84c' }} />
+                <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
+                  CFO · Financial Ledger
                 </span>
               </div>
+              <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
+                Cash Flow &amp; Transactions
+              </h1>
+              <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+                Showing {visible.length} of {ALL_TRANSACTIONS.length} transactions
+              </p>
             </div>
-          )
-        })}
-
-        {/* Empty state */}
-        {visible.length === 0 && (
-          <div
-            className="flex flex-col items-center justify-center py-16"
-            style={{ background: '#0d1e30' }}
-          >
-            <BookOpen size={28} style={{ color: 'rgba(201,168,76,0.25)' }} />
-            <p className="mt-3 text-xs font-mono" style={{ color: '#7a95b0' }}>
-              No transactions match the current filter.
-            </p>
+            <button
+              onClick={handleNewData}
+              disabled={isTrialLocked}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold flex-shrink-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'rgba(201,168,76,0.12)',
+                border: '1px solid rgba(201,168,76,0.3)',
+                color: '#c9a84c',
+              }}
+              onMouseEnter={(e) => {
+                if (!isTrialLocked) (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.12)'
+              }}
+            >
+              <Plus size={14} />
+              New Data
+            </button>
           </div>
-        )}
 
-        {/* Totals footer */}
-        <div
-          className="grid px-5 py-3.5 items-center border-t"
-          style={{
-            gridTemplateColumns: '1fr 2fr 2fr 1fr 1fr',
-            background: '#0f2035',
-            borderColor: 'rgba(201,168,76,0.1)',
-          }}
-        >
-          <span />
-          <span />
-          <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: '#7a95b0' }}>
-            Net Total ({visible.length} records)
-          </span>
-          <span />
-          <span
-            className="text-sm font-semibold font-mono text-right"
-            style={{ color: totalBalance >= 0 ? '#c9a84c' : '#e05252' }}
-          >
-            {totalBalance >= 0 ? '+' : '-'}{fmt(totalBalance)}
-          </span>
+          {ingestionOpen && (
+            <IngestionModal
+              onClose={() => setIngestionOpen(false)}
+              onProcessed={() => {
+                recordCfoUpload()
+                setIngestionOpen(false)
+              }}
+            />
+          )}
+
+          {/* Main content area — blurred only when trial gate fires */}
+          <div className="relative">
+            {isTrialLocked && (
+              <TrialLockOverlay
+                agentName="CFO"
+                actionLabel="CFO uploads"
+                onUpgrade={goToBilling}
+              />
+            )}
+
+            <div
+              style={
+                isTrialLocked
+                  ? { filter: 'blur(5px)', pointerEvents: 'none', userSelect: 'none' }
+                  : {}
+              }
+            >
+              {/* Summary cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <SummaryCard
+                  label="Net Balance"
+                  value={`${totalBalance >= 0 ? '+' : '-'}${fmt(totalBalance)}`}
+                  sub={`Based on ${visible.length} visible transactions`}
+                  icon={Wallet}
+                  color={totalBalance >= 0 ? '#c9a84c' : '#e05252'}
+                  bg={totalBalance >= 0 ? 'rgba(201,168,76,0.1)' : 'rgba(224,82,82,0.1)'}
+                />
+                <SummaryCard
+                  label="Total Incoming"
+                  value={`+${fmt(totalIncoming)}`}
+                  sub={`${visible.filter((t) => t.type === 'incoming').length} inbound transactions`}
+                  icon={TrendingUp}
+                  color="#4a9c5d"
+                  bg="rgba(74,156,93,0.1)"
+                />
+                <SummaryCard
+                  label="Total Outgoing"
+                  value={`-${fmt(totalOutgoing)}`}
+                  sub={`${visible.filter((t) => t.type === 'outgoing').length} outbound transactions`}
+                  icon={TrendingDown}
+                  color="#e05252"
+                  bg="rgba(224,82,82,0.1)"
+                />
+              </div>
+
+              {/* Ledger table */}
+              <div
+                className="rounded-xl overflow-hidden"
+                style={{ border: '1px solid rgba(201,168,76,0.15)' }}
+              >
+                {/* Table controls */}
+                <div
+                  className="flex items-center justify-between px-5 py-3.5 border-b"
+                  style={{
+                    background: '#0f2035',
+                    borderColor: 'rgba(201,168,76,0.1)',
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <Filter size={13} style={{ color: '#7a95b0' }} />
+                    <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: '#7a95b0' }}>
+                      Filter
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FilterPill label="All" active={filter === 'all'} onClick={() => setFilter('all')} />
+                    <FilterPill label="Incoming" active={filter === 'incoming'} onClick={() => setFilter('incoming')} />
+                    <FilterPill label="Outgoing" active={filter === 'outgoing'} onClick={() => setFilter('outgoing')} />
+                  </div>
+                </div>
+
+                {/* Column headers */}
+                <div
+                  className="grid px-5 py-2.5 text-[10px] font-mono uppercase tracking-wider"
+                  style={{
+                    background: '#0f2035',
+                    color: '#7a95b0',
+                    gridTemplateColumns: '1fr 2fr 2fr 1fr 1fr',
+                    borderBottom: '1px solid rgba(201,168,76,0.08)',
+                  }}
+                >
+                  <span>Txn ID</span>
+                  <span>Date</span>
+                  <span>Description</span>
+                  <span>Category</span>
+                  <span className="text-right">Amount</span>
+                </div>
+
+                {/* Rows */}
+                {visible.map((tx, i) => {
+                  const isIn = tx.type === 'incoming'
+                  return (
+                    <div
+                      key={tx.id}
+                      className="grid px-5 py-3.5 items-center transition-colors"
+                      style={{
+                        gridTemplateColumns: '1fr 2fr 2fr 1fr 1fr',
+                        background: i % 2 === 0 ? '#0d1e30' : 'rgba(15,32,53,0.55)',
+                        borderBottom: i < visible.length - 1 ? '1px solid rgba(201,168,76,0.05)' : 'none',
+                      }}
+                    >
+                      <span className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>
+                        {tx.id}
+                      </span>
+                      <span className="text-xs" style={{ color: '#c0cdd8' }}>
+                        {tx.date}
+                      </span>
+                      <span className="text-xs font-medium pr-4 truncate" style={{ color: '#f0f4f8' }}>
+                        {tx.description}
+                      </span>
+                      <span
+                        className="text-[10px] font-mono px-2 py-0.5 rounded-full w-fit"
+                        style={{
+                          background: 'rgba(122,149,176,0.1)',
+                          color: '#7a95b0',
+                        }}
+                      >
+                        {tx.category}
+                      </span>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {isIn ? (
+                          <ArrowDownLeft size={12} style={{ color: '#4a9c5d', flexShrink: 0 }} />
+                        ) : (
+                          <ArrowUpRight size={12} style={{ color: '#e05252', flexShrink: 0 }} />
+                        )}
+                        <span
+                          className="text-sm font-semibold font-mono"
+                          style={{ color: isIn ? '#4a9c5d' : '#e05252' }}
+                        >
+                          {isIn ? '+' : '-'}{fmt(tx.amount)}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Empty state */}
+                {visible.length === 0 && (
+                  <div
+                    className="flex flex-col items-center justify-center py-16"
+                    style={{ background: '#0d1e30' }}
+                  >
+                    <BookOpen size={28} style={{ color: 'rgba(201,168,76,0.25)' }} />
+                    <p className="mt-3 text-xs font-mono" style={{ color: '#7a95b0' }}>
+                      No transactions match the current filter.
+                    </p>
+                  </div>
+                )}
+
+                {/* Totals footer */}
+                <div
+                  className="grid px-5 py-3.5 items-center border-t"
+                  style={{
+                    gridTemplateColumns: '1fr 2fr 2fr 1fr 1fr',
+                    background: '#0f2035',
+                    borderColor: 'rgba(201,168,76,0.1)',
+                  }}
+                >
+                  <span />
+                  <span />
+                  <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: '#7a95b0' }}>
+                    Net Total ({visible.length} records)
+                  </span>
+                  <span />
+                  <span
+                    className="text-sm font-semibold font-mono text-right"
+                    style={{ color: totalBalance >= 0 ? '#c9a84c' : '#e05252' }}
+                  >
+                    {totalBalance >= 0 ? '+' : '-'}{fmt(totalBalance)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* ── 30% terminal ── */}
+      <div className="w-[30%] flex-shrink-0">
+        <DirectAgentTerminal
+          agentRole="CFO"
+          onCommandSent={() => {
+            // Terminal commands on CFO page count as uploads for gating purposes
+            if (subscriptionTier === 'Trial' && cfoUploadCount < TRIAL_LIMIT) {
+              setCfoUploadCount((c) => Math.min(c + 1, TRIAL_LIMIT))
+            }
+            consumeTokens('CFO_UPLOAD')
+          }}
+        />
       </div>
     </div>
   )
