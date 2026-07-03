@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Send, Terminal, Sparkles } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -89,9 +90,12 @@ function nextId() { return _msgId++ }
 export default function DirectAgentTerminal({
   agentRole,
   onCommandSent,
+  className = '',
 }: {
   agentRole: AgentRole
   onCommandSent?: () => void
+  /** Extra class names — useful when embedding inside the mobile Sheet */
+  className?: string
 }) {
   const cfg = AGENT_CONFIG[agentRole]
 
@@ -118,7 +122,6 @@ export default function DirectAgentTerminal({
     const text = input.trim()
     if (!text || isTyping) return
 
-    // Notify parent — used to consume a trial credit
     onCommandSent?.()
 
     const userMsg: Message = {
@@ -131,13 +134,11 @@ export default function DirectAgentTerminal({
     setInput('')
     setIsTyping(true)
 
-    // Simulate agent response delay (1–2.2s)
     const delay = 1000 + Math.random() * 1200
     setTimeout(() => {
       const responses = cfg.responses
       const responseText = responses[responseIdxRef.current % responses.length]
       responseIdxRef.current++
-
       const agentMsg: Message = {
         id: nextId(),
         role: 'agent',
@@ -158,7 +159,7 @@ export default function DirectAgentTerminal({
 
   return (
     <div
-      className="flex flex-col h-full"
+      className={`flex flex-col h-full ${className}`}
       style={{
         background: '#0a1929',
         borderLeft: '1px solid rgba(201,168,76,0.12)',
@@ -173,7 +174,6 @@ export default function DirectAgentTerminal({
           background: 'rgba(11,25,41,0.8)',
         }}
       >
-        {/* Avatar orb */}
         <div
           className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0"
           style={{
@@ -191,7 +191,6 @@ export default function DirectAgentTerminal({
             <p className="text-xs font-semibold" style={{ color: '#f0f4f8' }}>
               {cfg.label}
             </p>
-            {/* Live indicator */}
             <span
               className="w-1.5 h-1.5 rounded-full flex-shrink-0"
               style={{
@@ -221,7 +220,6 @@ export default function DirectAgentTerminal({
             key={msg.id}
             className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
           >
-            {/* Bubble */}
             <div
               className="max-w-[90%] px-3 py-2.5 rounded-xl text-xs leading-relaxed"
               style={
@@ -241,9 +239,7 @@ export default function DirectAgentTerminal({
               }
             >
               {msg.role === 'agent' && (
-                <div
-                  className="flex items-center gap-1.5 mb-1.5"
-                >
+                <div className="flex items-center gap-1.5 mb-1.5">
                   <Sparkles size={9} style={{ color: cfg.color }} />
                   <span
                     className="text-[9px] font-mono uppercase tracking-widest"
@@ -258,40 +254,32 @@ export default function DirectAgentTerminal({
               </p>
             </div>
 
-            {/* Timestamp */}
             <span className="text-[9px] font-mono px-1" style={{ color: 'rgba(122,149,176,0.4)' }}>
               {msg.timestamp}
             </span>
           </div>
         ))}
 
-        {/* Typing indicator */}
+        {/* ── Skeleton typing indicator (replaces plain dots) ── */}
         {isTyping && (
-          <div className="flex items-start gap-2">
-            <div className="px-3 py-2.5 rounded-xl" style={{
-              background: 'rgba(201,168,76,0.05)',
-              border: `1px solid ${cfg.color}20`,
-              borderRadius: '4px 12px 12px 12px',
-            }}>
-              <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="flex items-start">
+            <div
+              className="px-3 py-2.5 w-[78%]"
+              style={{
+                background: 'rgba(201,168,76,0.05)',
+                border: `1px solid ${cfg.color}20`,
+                borderRadius: '4px 12px 12px 12px',
+              }}
+            >
+              {/* Agent label */}
+              <div className="flex items-center gap-1.5 mb-2">
                 <Sparkles size={9} style={{ color: cfg.color }} />
-                <span className="text-[9px] font-mono uppercase tracking-widest" style={{ color: cfg.color }}>
-                  {cfg.label}
-                </span>
+                <Skeleton className="h-2 w-12" style={{ background: `${cfg.color}25` }} />
               </div>
-              <div className="flex items-center gap-1 py-0.5">
-                {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full"
-                    style={{
-                      background: cfg.color,
-                      opacity: 0.7,
-                      animation: `typingBounce 1.2s ${i * 0.2}s ease-in-out infinite`,
-                    }}
-                  />
-                ))}
-              </div>
+              {/* Simulated text lines */}
+              <Skeleton className="h-2.5 w-full mb-1.5" />
+              <Skeleton className="h-2.5 w-5/6 mb-1.5" />
+              <Skeleton className="h-2.5 w-2/3" />
             </div>
           </div>
         )}
@@ -311,7 +299,6 @@ export default function DirectAgentTerminal({
             border: '1px solid rgba(201,168,76,0.15)',
             transition: 'border-color 0.2s',
           }}
-          onFocus={() => {}}
         >
           <input
             ref={inputRef}
@@ -337,10 +324,7 @@ export default function DirectAgentTerminal({
             onClick={sendMessage}
             disabled={!input.trim() || isTyping}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold font-mono uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-            style={{
-              background: '#c9a84c',
-              color: '#0b1929',
-            }}
+            style={{ background: '#c9a84c', color: '#0b1929' }}
             onMouseEnter={(e) => {
               if (!e.currentTarget.disabled)
                 (e.currentTarget as HTMLElement).style.background = '#d4b560'
@@ -358,14 +342,6 @@ export default function DirectAgentTerminal({
           Press Enter to send · AI responses are simulated
         </p>
       </div>
-
-      {/* Keyframe styles */}
-      <style>{`
-        @keyframes typingBounce {
-          0%, 60%, 100% { transform: translateY(0); }
-          30% { transform: translateY(-4px); }
-        }
-      `}</style>
     </div>
   )
 }

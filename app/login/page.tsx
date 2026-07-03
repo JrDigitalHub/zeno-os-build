@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import AuthCard, { AUTH_INPUT_STYLE, authInputFocus, authInputBlur, LoadingDots } from '@/components/auth-card'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -16,10 +16,8 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setIsLoading(true)
-
     // TODO: Replace with actual auth call, e.g. Supabase signInWithPassword
     await new Promise((resolve) => setTimeout(resolve, 1500))
-
     setIsLoading(false)
     router.replace('/dashboard')
     // Hard redirect fallback — ensures navigation even if client-side router silently fails
@@ -27,195 +25,106 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Subtle geometric background pattern */}
-      <div
-        className="absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(201,168,76,0.8) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(201,168,76,0.8) 1px, transparent 1px)
-          `,
-          backgroundSize: '60px 60px',
-        }}
-      />
-
-      {/* Radial glow behind card */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(201,168,76,0.04) 0%, transparent 70%)',
-        }}
-      />
-
-      <div className="relative z-10 w-full max-w-sm px-4">
-        {/* Card */}
-        <div
-          className="bg-card border rounded-xl px-8 py-10 shadow-2xl"
-          style={{ borderColor: 'rgba(201,168,76,0.2)' }}
-        >
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 mb-5">
-              <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/zeno-logo-lkiAE73bRovt0MDeLabqYwMQSuit6L.png"
-                alt="Zeno OS Logo"
-                width={64}
-                height={64}
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <h1
-              className="text-xl font-semibold tracking-widest uppercase"
-              style={{ color: '#c9a84c', letterSpacing: '0.25em' }}
-            >
-              Zeno OS
-            </h1>
-            <p className="text-xs mt-1 font-mono" style={{ color: '#7a95b0', letterSpacing: '0.15em' }}>
-              NEURAL BUSINESS OPERATING SYSTEM
-            </p>
-          </div>
-
-          {/* Divider */}
-          <div className="h-px mb-7" style={{ background: 'rgba(201,168,76,0.15)' }} />
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="email"
-                className="text-xs font-mono uppercase tracking-widest"
-                style={{ color: '#7a95b0' }}
-              >
-                Work Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="you@company.com"
-                className="w-full rounded-md px-4 py-2.5 text-sm font-sans transition-all outline-none"
-                style={{
-                  background: 'rgba(201,168,76,0.06)',
-                  border: '1px solid rgba(201,168,76,0.2)',
-                  color: '#f0f4f8',
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = 'rgba(201,168,76,0.5)'
-                  e.target.style.boxShadow = '0 0 0 2px rgba(201,168,76,0.08)'
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'rgba(201,168,76,0.2)'
-                  e.target.style.boxShadow = 'none'
-                }}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="password"
-                className="text-xs font-mono uppercase tracking-widest"
-                style={{ color: '#7a95b0' }}
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••••••"
-                className="w-full rounded-md px-4 py-2.5 text-sm font-sans transition-all outline-none"
-                style={{
-                  background: 'rgba(201,168,76,0.06)',
-                  border: '1px solid rgba(201,168,76,0.2)',
-                  color: '#f0f4f8',
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = 'rgba(201,168,76,0.5)'
-                  e.target.style.boxShadow = '0 0 0 2px rgba(201,168,76,0.08)'
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'rgba(201,168,76,0.2)'
-                  e.target.style.boxShadow = 'none'
-                }}
-              />
-            </div>
-
-            {error && (
-              <p className="text-xs text-red-400 font-mono -mt-2">{error}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="mt-1 w-full rounded-md py-3 text-sm font-semibold font-mono uppercase tracking-widest transition-all relative overflow-hidden"
-              style={{
-                background: isLoading
-                  ? 'rgba(201,168,76,0.5)'
-                  : '#c9a84c',
-                color: '#0b1929',
-                letterSpacing: '0.2em',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <LoadingDots />
-                  <span>Initializing...</span>
-                </span>
-              ) : (
-                'Initialize Session'
-              )}
-            </button>
-          </form>
-
-          {/* Footer */}
-          <div className="mt-7 text-center">
-            <p className="text-xs font-mono" style={{ color: '#7a95b0' }}>
-              Don&apos;t have access?{' '}
-              <Link
-                href="/onboarding"
-                className="transition-colors"
-                style={{ color: '#c9a84c' }}
-              >
-                Request Access
-              </Link>
-            </p>
-          </div>
-        </div>
-
-        {/* System tag */}
-        <p
-          className="text-center mt-5 text-xs font-mono"
-          style={{ color: 'rgba(122,149,176,0.4)', letterSpacing: '0.12em' }}
-        >
-          v2.4.1 · ENTERPRISE EDITION
+    <AuthCard>
+      {/* Sub-heading */}
+      <div className="text-center mb-6 -mt-2">
+        <p className="text-xs font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
+          Sign in to your workspace
         </p>
       </div>
-    </main>
-  )
-}
 
-function LoadingDots() {
-  return (
-    <span className="flex gap-0.5 items-center">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="inline-block w-1 h-1 rounded-full"
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="email"
+            className="text-xs font-mono uppercase tracking-widest"
+            style={{ color: '#7a95b0' }}
+          >
+            Work Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="you@company.com"
+            className="w-full rounded-md px-4 py-2.5 text-sm font-sans transition-all outline-none"
+            style={AUTH_INPUT_STYLE}
+            onFocus={authInputFocus}
+            onBlur={authInputBlur}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="password"
+              className="text-xs font-mono uppercase tracking-widest"
+              style={{ color: '#7a95b0' }}
+            >
+              Password
+            </label>
+            {/* Forgot password link — new */}
+            <Link
+              href="/forgot-password"
+              className="text-[11px] font-mono transition-colors"
+              style={{ color: 'rgba(201,168,76,0.65)' }}
+            >
+              Forgot password?
+            </Link>
+          </div>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="••••••••••••"
+            className="w-full rounded-md px-4 py-2.5 text-sm font-sans transition-all outline-none"
+            style={AUTH_INPUT_STYLE}
+            onFocus={authInputFocus}
+            onBlur={authInputBlur}
+          />
+        </div>
+
+        {error && (
+          <p className="text-xs text-red-400 font-mono -mt-2">{error}</p>
+        )}
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="mt-1 w-full rounded-md py-3 text-sm font-semibold font-mono uppercase tracking-widest transition-all relative overflow-hidden"
           style={{
-            background: '#0b1929',
-            animation: `blink 1.2s ${i * 0.2}s ease-in-out infinite`,
+            background: isLoading ? 'rgba(201,168,76,0.5)' : '#c9a84c',
+            color: '#0b1929',
+            letterSpacing: '0.2em',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
           }}
-        />
-      ))}
-    </span>
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <LoadingDots />
+              <span>Initializing...</span>
+            </span>
+          ) : (
+            'Initialize Session'
+          )}
+        </button>
+      </form>
+
+      {/* Footer */}
+      <div className="mt-7 flex flex-col items-center gap-2">
+        <p className="text-xs font-mono" style={{ color: '#7a95b0' }}>
+          Don&apos;t have access?{' '}
+          <Link href="/signup" className="transition-colors" style={{ color: '#c9a84c' }}>
+            Create an account
+          </Link>
+        </p>
+      </div>
+    </AuthCard>
   )
 }

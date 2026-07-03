@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X, KanbanSquare, ChevronRight, ChevronLeft, AlignLeft } from 'lucide-react'
+import { Plus, X, KanbanSquare, ChevronRight, ChevronLeft, AlignLeft, MessageSquare } from 'lucide-react'
 import DirectAgentTerminal from '@/components/direct-agent-terminal'
 import {
   TRIAL_LIMIT,
@@ -11,6 +11,15 @@ import {
   StarterCreditBanner,
 } from '@/components/trial-gate'
 import { useTokenVault } from '@/components/token-context'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from '@/hooks/use-toast'
+import { useAppContext } from '@/context/AppContext'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -30,8 +39,6 @@ type Task = {
 type Board = Record<Status, Task[]>
 
 // ── Mock subscription state ─────────────────────────────────────────────────
-// Change this to 'Starter' or 'Professional' to preview other tiers.
-
 const MOCK_TIER: SubscriptionTier = 'Trial'
 
 // ── Seed data ──────────────────────────────────────────────────────────────
@@ -65,11 +72,33 @@ function PriorityBadge({ priority }: { priority: Priority }) {
   const s = PRIORITY_MAP[priority]
   return (
     <span
-      className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider"
+      className="px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider flex-shrink-0"
       style={{ background: s.bg, color: s.color }}
     >
       {priority}
     </span>
+  )
+}
+
+// ── Skeleton card (used during loading) ────────────────────────────────────
+
+function SkeletonCard() {
+  return (
+    <div
+      className="rounded-xl p-4"
+      style={{ background: '#0f2035', border: '1px solid rgba(201,168,76,0.08)' }}
+    >
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <Skeleton className="h-3.5 w-3/4" />
+        <Skeleton className="h-4 w-14 rounded-full flex-shrink-0" />
+      </div>
+      <Skeleton className="h-2.5 w-full mb-1.5" />
+      <Skeleton className="h-2.5 w-4/5 mb-4" />
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-5 w-5 rounded-full flex-shrink-0" />
+        <Skeleton className="h-2.5 w-28" />
+      </div>
+    </div>
   )
 }
 
@@ -95,7 +124,7 @@ function TaskCard({
       style={{ background: '#0f2035', border: '1px solid rgba(201,168,76,0.13)' }}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <p className="text-sm font-semibold leading-snug text-balance" style={{ color: '#f0f4f8' }}>
+        <p className="text-sm font-semibold leading-snug" style={{ color: '#f0f4f8' }}>
           {task.title}
         </p>
         <PriorityBadge priority={task.priority} />
@@ -119,7 +148,7 @@ function TaskCard({
           {canBack && (
             <button
               onClick={() => onMove(task, col, 'back')}
-              className="p-1 rounded-md transition-colors"
+              className="p-1 rounded-md"
               style={{ color: '#7a95b0', background: 'rgba(122,149,176,0.1)' }}
               title="Move back"
             >
@@ -129,7 +158,7 @@ function TaskCard({
           {canForward && (
             <button
               onClick={() => onMove(task, col, 'forward')}
-              className="p-1 rounded-md transition-colors"
+              className="p-1 rounded-md"
               style={{ color: '#c9a84c', background: 'rgba(201,168,76,0.1)' }}
               title="Move forward"
             >
@@ -142,26 +171,31 @@ function TaskCard({
   )
 }
 
-// ── Column ─────────────────────────────────────────────────────────────────
+// ── Column header config ────────────────────────────────────────────────────
 
 const COL_META: Record<Status, { label: string; accent: string; dot: string }> = {
-  backlog:      { label: 'Backlog',     accent: 'rgba(122,149,176,0.15)', dot: '#7a95b0' },
-  'in-progress':{ label: 'In Progress', accent: 'rgba(201,168,76,0.12)',  dot: '#c9a84c' },
-  completed:    { label: 'Completed',   accent: 'rgba(74,156,93,0.12)',   dot: '#4a9c5d' },
+  backlog:       { label: 'Backlog',     accent: 'rgba(122,149,176,0.15)', dot: '#7a95b0' },
+  'in-progress': { label: 'In Progress', accent: 'rgba(201,168,76,0.12)',  dot: '#c9a84c' },
+  completed:     { label: 'Completed',   accent: 'rgba(74,156,93,0.12)',   dot: '#4a9c5d' },
 }
+
+// ── Column ─────────────────────────────────────────────────────────────────
 
 function Column({
   col,
   tasks,
   onMove,
+  isLoading,
 }: {
   col: Status
   tasks: Task[]
   onMove: (task: Task, from: Status, dir: 'forward' | 'back') => void
+  isLoading: boolean
 }) {
   const meta = COL_META[col]
   return (
     <div className="flex flex-col min-w-0">
+      {/* Column header */}
       <div
         className="flex items-center justify-between px-4 py-3 rounded-xl mb-3"
         style={{ background: meta.accent }}
@@ -176,23 +210,35 @@ function Column({
           className="text-xs font-mono px-2 py-0.5 rounded-full"
           style={{ background: 'rgba(255,255,255,0.07)', color: '#7a95b0' }}
         >
-          {tasks.length}
+          {isLoading ? '–' : tasks.length}
         </span>
       </div>
+
+      {/* Cards */}
       <div className="flex flex-col gap-3">
-        {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} col={col} onMove={onMove} />
-        ))}
-        {tasks.length === 0 && (
+        {isLoading ? (
+          // Loading skeleton cards
+          Array.from({ length: col === 'in-progress' ? 2 : 3 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))
+        ) : tasks.length === 0 ? (
+          // ── Empty state: dashed drop zone ──
           <div
-            className="flex flex-col items-center justify-center py-10 rounded-xl"
-            style={{ border: '1px dashed rgba(201,168,76,0.1)' }}
+            className="flex flex-col items-center justify-center py-10 rounded-xl gap-2"
+            style={{
+              border: '1.5px dashed rgba(201,168,76,0.18)',
+              background: 'rgba(201,168,76,0.02)',
+            }}
           >
-            <AlignLeft size={20} style={{ color: 'rgba(201,168,76,0.25)' }} />
-            <p className="mt-2 text-xs font-mono" style={{ color: 'rgba(122,149,176,0.5)' }}>
-              No tasks
+            <AlignLeft size={18} style={{ color: 'rgba(201,168,76,0.2)' }} />
+            <p className="text-[11px] font-mono" style={{ color: 'rgba(122,149,176,0.45)' }}>
+              Drop tasks here
             </p>
           </div>
+        ) : (
+          tasks.map((task) => (
+            <TaskCard key={task.id} task={task} col={col} onMove={onMove} />
+          ))
         )}
       </div>
     </div>
@@ -359,27 +405,38 @@ const COLS: Status[] = ['backlog', 'in-progress', 'completed']
 export default function OperationsPage() {
   const router = useRouter()
   const { consumeTokens } = useTokenVault()
+  const { tokenLimitHit } = useAppContext()
 
   const [board, setBoard] = useState<Board>(INITIAL_BOARD)
   const [modalOpen, setModalOpen] = useState(false)
+  const [terminalOpen, setTerminalOpen] = useState(false)
+
+  // ── 2-second loading skeleton on initial mount ─────────────────────────
+  const [isLoading, setIsLoading] = useState(true)
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoading(false), 2000)
+    return () => clearTimeout(t)
+  }, [])
 
   const subscriptionTier: SubscriptionTier = MOCK_TIER
 
   // ── Independent COO trial counter ──────────────────────────────────────
-  // Counts successful task executions / kanban updates on Trial tier.
-  // Gate fires when cooTaskCount reaches TRIAL_LIMIT (i.e. on the 4th attempt).
   const [cooTaskCount, setCooTaskCount] = useState(0)
+  const isTrialLocked =
+    (subscriptionTier === 'Trial' && cooTaskCount >= TRIAL_LIMIT) || tokenLimitHit
 
-  const isTrialLocked = subscriptionTier === 'Trial' && cooTaskCount >= TRIAL_LIMIT
-
-  /** Increment the COO counter + consume tokens. Returns true if the gate fires. */
   function recordCooAction(): boolean {
     if (subscriptionTier !== 'Trial') {
       consumeTokens('COO_TASK')
       return false
     }
     if (cooTaskCount >= TRIAL_LIMIT) {
-      // Gate already active — block silently (overlay is already visible)
+      // Warn the user instead of silently failing
+      toast({
+        variant: 'warning',
+        title: 'Token limit reached.',
+        description: 'Please upgrade to continue.',
+      })
       return true
     }
     setCooTaskCount((c) => c + 1)
@@ -405,8 +462,14 @@ export default function OperationsPage() {
   }
 
   function addTask(task: Task) {
-    recordCooAction()
+    if (recordCooAction()) return
     setBoard((prev) => ({ ...prev, backlog: [task, ...prev.backlog] }))
+    // ── Success toast ──
+    toast({
+      variant: 'success',
+      title: 'Task added to queue',
+      description: `"${task.title}" is now in the backlog.`,
+    })
   }
 
   const total = COLS.reduce((sum, col) => sum + board[col].length, 0)
@@ -417,12 +480,28 @@ export default function OperationsPage() {
         <CreateModal onClose={() => setModalOpen(false)} onCreate={addTask} />
       )}
 
-      <div className="flex h-[calc(100vh-57px)]">
-        {/* ── 70% main content ── */}
-        <div className="flex-1 overflow-y-auto min-w-0">
-          <div className="p-6">
+      {/* ── Mobile terminal Sheet (slides up from bottom on < lg) ── */}
+      <Sheet open={terminalOpen} onOpenChange={setTerminalOpen}>
+        <SheetContent side="bottom" className="p-0 flex flex-col">
+          <SheetHeader className="px-4 pt-4 pb-3 border-b border-[rgba(201,168,76,0.12)]">
+            <SheetTitle style={{ color: '#f0f4f8' }}>COO Agent Terminal</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 min-h-0">
+            <DirectAgentTerminal
+              agentRole="COO"
+              className="border-l-0"
+              onCommandSent={() => recordCooAction()}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
-            {/* Trial banner — shown while under limit */}
+      <div className="flex flex-col lg:flex-row h-[calc(100vh-57px)]">
+        {/* ── Main content (full width on mobile, 70% on lg+) ── */}
+        <div className="flex-1 overflow-y-auto min-w-0">
+          <div className="p-4 sm:p-6">
+
+            {/* Trial / Starter banners */}
             {subscriptionTier === 'Trial' && cooTaskCount < TRIAL_LIMIT && (
               <TrialCreditBanner
                 used={cooTaskCount}
@@ -432,8 +511,6 @@ export default function OperationsPage() {
                 onUpgrade={goToBilling}
               />
             )}
-
-            {/* Starter banner */}
             {subscriptionTier === 'Starter' && (
               <StarterCreditBanner used={15} total={50} agentName="COO" />
             )}
@@ -447,11 +524,11 @@ export default function OperationsPage() {
                     COO · Operations Board
                   </span>
                 </div>
-                <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
+                <h1 className="text-xl font-semibold" style={{ color: '#f0f4f8' }}>
                   Task Management
                 </h1>
                 <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
-                  {total} active tasks across {COLS.length} stages
+                  {isLoading ? '—' : `${total} active tasks across ${COLS.length} stages`}
                 </p>
               </div>
               <button
@@ -459,7 +536,7 @@ export default function OperationsPage() {
                   if (isTrialLocked) return
                   setModalOpen(true)
                 }}
-                disabled={isTrialLocked}
+                disabled={isTrialLocked || isLoading}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: '#c9a84c', color: '#0b1929' }}
               >
@@ -468,7 +545,7 @@ export default function OperationsPage() {
               </button>
             </div>
 
-            {/* Kanban board — blurred + locked when trial gate fires */}
+            {/* Kanban board */}
             <div className="relative">
               {isTrialLocked && (
                 <TrialLockOverlay
@@ -478,6 +555,7 @@ export default function OperationsPage() {
                 />
               )}
 
+              {/* grid-cols-1 on mobile, 3 columns on md+ */}
               <div
                 className="grid grid-cols-1 md:grid-cols-3 gap-4"
                 style={
@@ -487,22 +565,43 @@ export default function OperationsPage() {
                 }
               >
                 {COLS.map((col) => (
-                  <Column key={col} col={col} tasks={board[col]} onMove={moveTask} />
+                  <Column
+                    key={col}
+                    col={col}
+                    tasks={board[col]}
+                    onMove={moveTask}
+                    isLoading={isLoading}
+                  />
                 ))}
               </div>
             </div>
-
           </div>
         </div>
 
-        {/* ── 30% terminal ── */}
-        <div className="w-[30%] flex-shrink-0">
+        {/* ── Desktop terminal (hidden on < lg) ── */}
+        <div className="hidden lg:flex w-[30%] flex-shrink-0">
           <DirectAgentTerminal
             agentRole="COO"
             onCommandSent={() => recordCooAction()}
           />
         </div>
       </div>
+
+      {/* ── Mobile floating "Chat with COO" button (hidden on lg+) ── */}
+      <button
+        id="coo-mobile-chat-fab"
+        onClick={() => setTerminalOpen(true)}
+        className="lg:hidden fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold shadow-2xl transition-all"
+        style={{
+          background: 'linear-gradient(135deg, #20b2aa, #178f88)',
+          color: '#fff',
+          boxShadow: '0 8px 32px rgba(32,178,170,0.4)',
+        }}
+        aria-label="Chat with COO Agent"
+      >
+        <MessageSquare size={16} />
+        Chat with COO
+      </button>
     </>
   )
 }

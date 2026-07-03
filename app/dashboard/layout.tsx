@@ -25,6 +25,8 @@ import {
   OPERATION_LABELS,
   STARTER_TOKEN_CAPACITY,
 } from '@/components/token-context'
+import { Toaster } from '@/components/ui/toast'
+import { AppProvider } from '@/context/AppContext'
 
 const NAV_ITEMS = [
   { label: 'Command Center', href: '/dashboard', icon: LayoutDashboard },
@@ -139,6 +141,7 @@ export default function DashboardLayout({
   const activePage = NAV_ITEMS.find((item) => item.href === pathname)?.label ?? 'Dashboard'
 
   return (
+    <AppProvider>
     <TokenProvider>
     <div className="flex min-h-screen" style={{ background: '#0b1929' }}>
       {/* Mobile overlay */}
@@ -466,6 +469,8 @@ export default function DashboardLayout({
         </div>
       )}
     </div>
+    <Toaster />
     </TokenProvider>
+    </AppProvider>
   )
 }

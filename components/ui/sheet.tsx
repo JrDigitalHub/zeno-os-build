@@ -25,17 +25,32 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
-const sheetVariants =
-  'fixed z-50 gap-4 bg-[#0f2035] border-l border-[rgba(201,168,76,0.18)] shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-300 inset-y-0 right-0 h-full w-full sm:max-w-md data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right'
+const sheetVariants = 'fixed z-50 gap-4 bg-[#0f2035] shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-300'
+
+const sideVariants = {
+  right:
+    'inset-y-0 right-0 h-full w-full sm:max-w-md border-l border-[rgba(201,168,76,0.18)] data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
+  bottom:
+    'inset-x-0 bottom-0 h-[72vh] w-full border-t border-[rgba(201,168,76,0.18)] rounded-t-2xl data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+}
+
+interface SheetContentProps
+  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> {
+  side?: 'right' | 'bottom'
+}
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  SheetContentProps
+>(({ className, children, side = 'right', ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
-    <SheetPrimitive.Content ref={ref} className={cn(sheetVariants, className)} {...props}>
-      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none">
+    <SheetPrimitive.Content
+      ref={ref}
+      className={cn(sheetVariants, sideVariants[side], className)}
+      {...props}
+    >
+      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none z-10">
         <X size={16} style={{ color: '#7a95b0' }} />
         <span className="sr-only">Close</span>
       </SheetPrimitive.Close>
