@@ -26,7 +26,8 @@ import {
   STARTER_TOKEN_CAPACITY,
 } from '@/components/token-context'
 import { Toaster } from '@/components/ui/toast'
-import { AppProvider } from '@/context/AppContext'
+import { Skeleton } from '@/components/ui/skeleton'
+import { AppProvider, useAppContext } from '@/context/AppContext'
 
 const NAV_ITEMS = [
   { label: 'Command Center', href: '/dashboard', icon: LayoutDashboard },
@@ -118,6 +119,58 @@ function TokenBurnChip() {
     </div>
   )
 }
+
+// ── Wallet status chip ─────────────────────────────────────────
+// Reads live tokenBalance + subscriptionTier from AppContext and renders
+// a skeleton while the initial wallet fetch is in flight.
+
+function WalletStatusChip() {
+  const { tokenBalance, subscriptionTier, walletLoading } = useAppContext()
+
+  if (walletLoading) {
+    return (
+      <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg"
+        style={{
+          background: 'rgba(201,168,76,0.04)',
+          border: '1px solid rgba(201,168,76,0.12)',
+          minWidth: 160,
+        }}
+      >
+        <Skeleton className="h-2.5 w-2.5 rounded-full" style={{ background: 'rgba(201,168,76,0.2)' }} />
+        <div className="flex flex-col gap-1 flex-1">
+          <Skeleton className="h-2 w-20" style={{ background: 'rgba(201,168,76,0.15)' }} />
+          <Skeleton className="h-1.5 w-full" style={{ background: 'rgba(201,168,76,0.1)' }} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg"
+      style={{
+        background: 'rgba(201,168,76,0.06)',
+        border: '1px solid rgba(201,168,76,0.18)',
+        minWidth: 160,
+      }}
+    >
+      <Zap size={11} style={{ color: '#c9a84c', flexShrink: 0 }} />
+      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+        <p className="text-[10px] font-mono" style={{ color: '#7a95b0' }}>
+          {tokenBalance.toLocaleString()}
+          <span style={{ color: 'rgba(122,149,176,0.5)' }}> tkns</span>
+        </p>
+        <p
+          className="text-[9px] font-mono uppercase tracking-widest truncate"
+          style={{ color: '#c9a84c' }}
+        >
+          {subscriptionTier}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 
 export default function DashboardLayout({
   children,
@@ -312,6 +365,14 @@ export default function DashboardLayout({
 
             {/* Token burndown chip */}
             <TokenBurnChip />
+
+            <div
+              className="h-4 w-px hidden md:block"
+              style={{ background: 'rgba(201,168,76,0.15)' }}
+            />
+
+            {/* Wallet status chip — live tokenBalance + tier from AppContext */}
+            <WalletStatusChip />
 
             <div
               className="h-4 w-px hidden md:block"

@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Terminal, Sparkles } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { apiClient, ApiError } from '@/lib/api-client'
+import { toast } from '@/hooks/use-toast'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,7 +27,6 @@ const AGENT_CONFIG: Record<
     sublabel: string
     greeting: string
     avatar: string
-    responses: string[]
   }
 > = {
   Oracle: {
@@ -35,14 +36,6 @@ const AGENT_CONFIG: Record<
     avatar: '◈',
     greeting:
       'Neural research engine online. I can scan the web for leads, enrich contact data, and draft outreach. What target domain or keyword should I investigate?',
-    responses: [
-      'Scanning target domain for decision-makers and org structure. Stand by — enrichment in progress.',
-      'Identified 7 high-confidence leads matching your criteria. Scores range from 74 to 95. Shall I draft outreach for the top three?',
-      'Pattern analysis complete. This vertical shows strong conversion signals in Q3. I recommend prioritising VP-level contacts.',
-      'Domain intelligence retrieved. Company uses Salesforce and HubSpot — warm intro pathway available through mutual connections.',
-      'Lead scoring model updated. Filtering out unverified contacts. Enriched dataset ready for export.',
-      'Research complete. I found 3 untapped channels in this niche. Want me to generate an outreach sequence?',
-    ],
   },
   COO: {
     color: '#20b2aa',
@@ -51,14 +44,6 @@ const AGENT_CONFIG: Record<
     avatar: '⬡',
     greeting:
       'Operations command centre active. I monitor your task pipeline, flag blockers, and automate workflow decisions. What would you like me to prioritise today?',
-    responses: [
-      'Reviewing task backlog. I spotted 2 critical items with no assignee — recommend escalating before end of day.',
-      'Workflow bottleneck detected in the In Progress column. The data warehouse migration has been stalled for 48 hours. Should I re-prioritise resources?',
-      'Team capacity analysis complete. Current sprint is 87% utilised. Adding new tasks may delay the Q3 milestone.',
-      'Automated SLA draft generated based on your existing contracts. Review and approve before client send.',
-      'Kanban health score: 72/100. Recommend moving 2 backlog items to In Progress to maintain velocity.',
-      'Onboarding task dependencies mapped. 3 subtasks can be parallelised. Estimated completion 2 days earlier if executed concurrently.',
-    ],
   },
   CFO: {
     color: '#4a9c5d',
@@ -67,14 +52,6 @@ const AGENT_CONFIG: Record<
     avatar: '◆',
     greeting:
       'Financial intelligence module online. I analyse your cash flow, flag anomalies, and surface actionable insights from your ledger. What would you like to examine?',
-    responses: [
-      'Cash flow analysis complete. Net positive this month at £3,750. However, payroll in 3 days will create a temporary negative position.',
-      'Anomaly detected: the R&D contractor charge is 34% above the monthly average. Want me to flag this for review?',
-      'Revenue trend is up 18% MoM. Primary driver is the Apex Systems enterprise contract. Recommend upsell opportunity.',
-      'Burn rate model updated. At current spend velocity, runway extends 14 months. Healthy position.',
-      'Tax optimisation opportunity identified: 3 expenses in the Legal category are reclassifiable. Potential saving: £1,200.',
-      'Bank sync recommendation: automating reconciliation would save approximately 6 hours of manual work per month.',
-    ],
   },
 }
 
@@ -109,7 +86,6 @@ export default function DirectAgentTerminal({
   ])
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
-  const responseIdxRef = useRef(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -118,7 +94,7 @@ export default function DirectAgentTerminal({
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isTyping])
 
-  function sendMessage() {
+  async function sendMessage() {
     const text = input.trim()
     if (!text || isTyping) return
 
@@ -134,20 +110,42 @@ export default function DirectAgentTerminal({
     setInput('')
     setIsTyping(true)
 
-    const delay = 1000 + Math.random() * 1200
-    setTimeout(() => {
-      const responses = cfg.responses
-      const responseText = responses[responseIdxRef.current % responses.length]
-      responseIdxRef.current++
+    try {
+      const data = await apiClient.post<{ response: string }>('/api/v1/chat', {
+        workspace_id: 'test_workspace_1',
+        agent_type: agentRole,
+        message: text,
+      })
+
       const agentMsg: Message = {
         id: nextId(),
         role: 'agent',
-        text: responseText,
+        text: data.response,
         timestamp: getTimestamp(),
       }
       setMessages((prev) => [...prev, agentMsg])
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        // Token limit hit — fire toast; api-client already set tokenLimitHit
+        toast({
+          title: 'Token limit reached. Please upgrade to continue.',
+          variant: 'error',
+        })
+      } else {
+        // Surface generic errors inline as an agent message
+        const errorMsg: Message = {
+          id: nextId(),
+          role: 'agent',
+          text: err instanceof ApiError
+            ? err.message
+            : 'An unexpected error occurred. Please try again.',
+          timestamp: getTimestamp(),
+        }
+        setMessages((prev) => [...prev, errorMsg])
+      }
+    } finally {
       setIsTyping(false)
-    }, delay)
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -339,7 +337,7 @@ export default function DirectAgentTerminal({
         </div>
 
         <p className="text-[9px] font-mono text-center mt-1.5" style={{ color: 'rgba(122,149,176,0.35)' }}>
-          Press Enter to send · AI responses are simulated
+          Press Enter to send · Powered by Gemini
         </p>
       </div>
     </div>

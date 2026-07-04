@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { buildPolarUrl, POLAR_CHECKOUT_IDS } from '@/lib/polar-config'
+import { useAppContext } from '@/context/AppContext'
 import DirectAgentTerminal from '@/components/direct-agent-terminal'
 import {
   Search,
@@ -287,11 +289,16 @@ function OraclePricingModal({
 
   async function handlePay() {
     setPaying(true)
+    // TODO: integrate Paystack (nigeria) checkout here
     await new Promise((res) => setTimeout(res, 2000))
     setPaying(false)
     setStep('success')
     onSuccess()
   }
+
+  // Workspace ID — real value injected by backend auth; placeholder until then
+  const { user, walletLoading } = useAppContext()
+  const workspaceId = user?.workspace_id
 
   return (
     <div
@@ -469,31 +476,96 @@ function OraclePricingModal({
                   Contact Our Enterprise Team
                 </a>
               ) : (
-                <button
-                  onClick={() => setStep('checkout')}
-                  className="w-full py-3 rounded-xl text-sm font-bold transition-all"
-                  style={
-                    selected.key === 'professional'
-                      ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
-                      : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
-                  }
-                  onMouseEnter={(e) => {
-                    if (selected.key === 'professional') {
-                      (e.currentTarget as HTMLElement).style.background = '#d4b560'
-                    } else {
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selected.key === 'professional') {
-                      (e.currentTarget as HTMLElement).style.background = '#c9a84c'
-                    } else {
-                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
-                    }
-                  }}
-                >
-                  Select {selected.name}
-                </button>
+                // Starter / Professional — redirect to Polar checkout
+                isNigeria ? (
+                  // Nigeria: keep internal checkout flow (Paystack)
+                    <button
+                      onClick={() => setStep('checkout')}
+                      className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+                      style={
+                        selected.key === 'professional'
+                          ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
+                          : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                      }
+                      onMouseEnter={(e) => {
+                        if (selected.key === 'professional') {
+                          (e.currentTarget as HTMLElement).style.background = '#d4b560'
+                        } else {
+                          (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (selected.key === 'professional') {
+                          (e.currentTarget as HTMLElement).style.background = '#c9a84c'
+                        } else {
+                          (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
+                        }
+                      }}
+                    >
+                      Select {selected.name}
+                    </button>
+                  ) : (
+                    // Rest of World: open Polar checkout in new tab with workspace_id
+                    walletLoading ? (
+                      <button
+                        disabled
+                        className="w-full py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed flex items-center justify-center gap-2"
+                        style={
+                          selected.key === 'professional'
+                            ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
+                            : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                        }
+                      >
+                        <Loader2 size={16} className="animate-spin" />
+                        Loading...
+                      </button>
+                    ) : !workspaceId ? (
+                      <button
+                        disabled
+                        className="w-full py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed text-center block"
+                        style={
+                          selected.key === 'professional'
+                            ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
+                            : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                        }
+                      >
+                        Workspace ID Missing
+                      </button>
+                    ) : (
+                      <a
+                        id={`oracle-polar-checkout-${selected.key}`}
+                        href={
+                          selected.key === 'starter'
+                            ? `${POLAR_CHECKOUT_IDS.starter}?workspace_id=${workspaceId}`
+                            : `${POLAR_CHECKOUT_IDS.professional}?workspace_id=${workspaceId}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-3 rounded-xl text-sm font-bold transition-all text-center block"
+                        style={
+                          selected.key === 'professional'
+                            ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
+                            : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                        }
+                        onMouseEnter={(e) => {
+                          if (selected.key === 'professional') {
+                            (e.currentTarget as HTMLElement).style.background = '#d4b560'
+                          } else {
+                            (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selected.key === 'professional') {
+                            (e.currentTarget as HTMLElement).style.background = '#c9a84c'
+                          } else {
+                            (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
+                          }
+                        }}
+                      >
+                        Checkout with Polar →
+                      </a>
+                    )
+                  )
               )}
               <p className="text-center text-[11px] font-mono" style={{ color: '#7a95b0' }}>
                 {selected.key === 'enterprise'

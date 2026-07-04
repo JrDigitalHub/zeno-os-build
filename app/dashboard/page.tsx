@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { apiClient } from '@/lib/api-client'
 import {
   Zap,
   DollarSign,
@@ -200,14 +201,38 @@ export default function CommandCenterPage() {
   const [cfoData, setCfoData] = useState<CfoStatus | null>(null)
 
   useEffect(() => {
-    // Simulate async fetch — replace these with real fetch() calls
-    // e.g.: fetch('/api/v1/oracle/status').then(r => r.json()).then(setOracleData)
-    const timer = setTimeout(() => {
-      setOracleData(ORACLE_STUB)
-      setCooData(COO_STUB)
-      setCfoData(CFO_STUB)
-    }, 600)
-    return () => clearTimeout(timer)
+    let cancelled = false
+
+    apiClient
+      .get<OracleStatus>('/api/v1/oracle/status')
+      .then((data) => {
+        if (!cancelled) setOracleData(data)
+      })
+      .catch(() => {
+        if (!cancelled) setOracleData(ORACLE_STUB)
+      })
+
+    apiClient
+      .get<CooStatus>('/api/v1/coo/tasks')
+      .then((data) => {
+        if (!cancelled) setCooData(data)
+      })
+      .catch(() => {
+        if (!cancelled) setCooData(COO_STUB)
+      })
+
+    apiClient
+      .get<CfoStatus>('/api/v1/cfo/ledger')
+      .then((data) => {
+        if (!cancelled) setCfoData(data)
+      })
+      .catch(() => {
+        if (!cancelled) setCfoData(CFO_STUB)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const formatCurrency = (n: number) =>
