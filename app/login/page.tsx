@@ -3,10 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { createBrowserClient } from '@supabase/ssr'
+import { useToast } from '@/hooks/use-toast'
 import AuthCard, { AUTH_INPUT_STYLE, authInputFocus, authInputBlur, LoadingDots } from '@/components/auth-card'
 
 export default function LoginPage() {
   const router = useRouter()
+  const { toast } = useToast()
+  const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -16,12 +20,65 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setIsLoading(true)
-    // TODO: Replace with actual auth call, e.g. Supabase signInWithPassword
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsLoading(false)
-    router.replace('/dashboard')
-    // Hard redirect fallback — ensures navigation even if client-side router silently fails
-    window.location.href = '/dashboard'
+
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+    )
+
+    try {
+      if (isSignUp) {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        })
+        if (signUpError) throw signUpError
+
+        if (data.session) {
+          toast({
+            title: 'Account Created',
+            description: 'Initializing your Zeno OS session...',
+            variant: 'success',
+          })
+          router.push('/dashboard')
+          router.refresh()
+        } else {
+          toast({
+            title: 'Verification Sent',
+            description: 'Check your inbox to confirm your account.',
+            variant: 'success',
+          })
+          setError('Confirmation email sent! Please check your inbox.')
+        }
+      } else {
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (signInError) throw signInError
+
+        toast({
+          title: 'Session Initialized',
+          description: 'Welcome back to Zeno OS.',
+          variant: 'success',
+        })
+        router.push('/dashboard')
+        router.refresh()
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || 'Authentication failed. Please try again.'
+      setError(errMsg)
+      toast({
+        title: 'Authentication Error',
+        description: errMsg,
+        variant: 'error',
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -29,7 +86,7 @@ export default function LoginPage() {
       {/* Sub-heading */}
       <div className="text-center mb-6 -mt-2">
         <p className="text-xs font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
-          Sign in to your workspace
+          {isSignUp ? 'Create a new workspace session' : 'Sign in to your workspace'}
         </p>
       </div>
 
@@ -66,19 +123,20 @@ export default function LoginPage() {
             >
               Password
             </label>
-            {/* Forgot password link — new */}
-            <Link
-              href="/forgot-password"
-              className="text-[11px] font-mono transition-colors"
-              style={{ color: 'rgba(201,168,76,0.65)' }}
-            >
-              Forgot password?
-            </Link>
+            {!isSignUp && (
+              <Link
+                href="/forgot-password"
+                className="text-[11px] font-mono transition-colors"
+                style={{ color: 'rgba(201,168,76,0.65)' }}
+              >
+                Forgot password?
+              </Link>
+            )}
           </div>
           <input
             id="password"
             type="password"
-            autoComplete="current-password"
+            autoComplete={isSignUp ? 'new-password' : 'current-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -108,10 +166,10 @@ export default function LoginPage() {
           {isLoading ? (
             <span className="flex items-center justify-center gap-2">
               <LoadingDots />
-              <span>Initializing...</span>
+              <span>{isSignUp ? 'Creating...' : 'Initializing...'}</span>
             </span>
           ) : (
-            'Initialize Session'
+            isSignUp ? 'Create Account' : 'Initialize Session'
           )}
         </button>
       </form>
@@ -119,10 +177,18 @@ export default function LoginPage() {
       {/* Footer */}
       <div className="mt-7 flex flex-col items-center gap-2">
         <p className="text-xs font-mono" style={{ color: '#7a95b0' }}>
-          Don&apos;t have access?{' '}
-          <Link href="/signup" className="transition-colors" style={{ color: '#c9a84c' }}>
-            Create an account
-          </Link>
+          {isSignUp ? 'Already have an account?' : "Don't have access?"}{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(!isSignUp)
+              setError('')
+            }}
+            className="transition-colors underline cursor-pointer font-bold"
+            style={{ color: '#c9a84c' }}
+          >
+            {isSignUp ? 'Sign in' : 'Create an account'}
+          </button>
         </p>
       </div>
     </AuthCard>

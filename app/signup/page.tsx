@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, CheckCircle2 } from 'lucide-react'
+import { createBrowserClient } from '@supabase/ssr'
+import { useToast } from '@/hooks/use-toast'
 import AuthCard, { AUTH_INPUT_STYLE, authInputFocus, authInputBlur, LoadingDots } from '@/components/auth-card'
 
 export default function SignUpPage() {
@@ -34,15 +36,59 @@ export default function SignUpPage() {
     form.password.length >= 8 &&
     form.password === form.confirm
 
+  const { toast } = useToast()
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!isValid) return
     setError('')
     setIsLoading(true)
-    // TODO: Replace with real auth call (Supabase signUp, Firebase createUser, etc.)
-    await new Promise((res) => setTimeout(res, 1500))
-    setIsLoading(false)
-    router.replace('/dashboard')
+
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+    )
+
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            full_name: form.name,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+      if (signUpError) throw signUpError
+
+      if (data.session) {
+        toast({
+          title: 'Account Created',
+          description: 'Welcome to Zeno OS!',
+          variant: 'success',
+        })
+        router.push('/dashboard')
+        router.refresh()
+      } else {
+        toast({
+          title: 'Verification Email Sent',
+          description: 'Please check your inbox to confirm your account.',
+          variant: 'success',
+        })
+        setError('Confirmation email sent! Please check your inbox.')
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || 'Failed to create account.'
+      setError(errMsg)
+      toast({
+        title: 'Signup Error',
+        description: errMsg,
+        variant: 'error',
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const inputClass =
