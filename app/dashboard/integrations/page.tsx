@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Plug, CheckCircle2, ArrowRight, Lock } from 'lucide-react'
 import Image from 'next/image'
+import { apiClient } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
 
 // ── Integration definitions ──────────────────────────────────────────────────
 
@@ -75,6 +77,7 @@ const AGENT_ACCENT: Record<string, { color: string; bg: string; border: string }
 // ── Integration card ─────────────────────────────────────────────────────────
 
 function IntegrationCard({ integration }: { integration: Integration }) {
+  const { toast } = useToast()
   const [connected, setConnected] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const accent = AGENT_ACCENT[integration.agent]
@@ -82,10 +85,32 @@ function IntegrationCard({ integration }: { integration: Integration }) {
   async function handleConnect() {
     if (connected || integration.comingSoon) return
     setConnecting(true)
-    // TODO: call real OAuth / API-key flow for this integration
-    await new Promise((res) => setTimeout(res, 1400))
-    setConnecting(false)
-    setConnected(true)
+    try {
+      const response = await apiClient.post<any>('/api/v1/integrations/connect', {
+        integrationId: integration.id,
+        integration_id: integration.id,
+      })
+
+      const redirectUrl = response?.url || response?.redirectUrl || response?.redirect_url || response?.data?.redirect_url
+      if (redirectUrl) {
+        window.location.href = redirectUrl
+      } else {
+        setConnected(true)
+        toast({
+          title: `${integration.name} Connected`,
+          description: `Integration setup completed successfully.`,
+          variant: 'success',
+        })
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Connection Failed',
+        description: err.message || `Unable to link ${integration.name}.`,
+        variant: 'error',
+      })
+    } finally {
+      setConnecting(false)
+    }
   }
 
   function handleDisconnect() {

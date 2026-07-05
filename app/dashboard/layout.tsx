@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
+import { createBrowserClient } from '@supabase/ssr'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
@@ -188,9 +189,20 @@ export default function DashboardLayout({
   async function handleSignOut() {
     setUserMenuOpen(false)
     setSigningOut(true)
-    // TODO: call your auth sign-out endpoint here before redirecting
-    await new Promise((res) => setTimeout(res, 1200))
-    router.push('/login')
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+    )
+    try {
+      await supabase.auth.signOut()
+      router.push('/login')
+      router.refresh()
+    } catch (err) {
+      console.error('Sign out error', err)
+      router.push('/login')
+    } finally {
+      setSigningOut(false)
+    }
   }
 
   const activePage = NAV_ITEMS.find((item) => item.href === pathname)?.label ?? 'Dashboard'

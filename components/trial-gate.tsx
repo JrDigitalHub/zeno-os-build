@@ -104,32 +104,6 @@ export function TrialCreditBanner({
             Upgrade
           </button>
         )}
-
-        {/* DEV-only: manually simulate usage */}
-        {process.env.NODE_ENV !== 'production' && onDevIncrease && (
-          <button
-            onClick={onDevIncrease}
-            disabled={used >= total}
-            title="[DEV] Simulate 1 action use"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{
-              background: 'rgba(139,92,246,0.12)',
-              border: '1px solid rgba(139,92,246,0.3)',
-              color: '#a78bfa',
-            }}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLElement).style.background =
-                'rgba(139,92,246,0.22)')
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLElement).style.background =
-                'rgba(139,92,246,0.12)')
-            }
-          >
-            <FlaskConical size={10} />
-            +1 Use
-          </button>
-        )}
       </div>
     </div>
   )

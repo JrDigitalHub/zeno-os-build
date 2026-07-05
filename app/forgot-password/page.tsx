@@ -3,11 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { createBrowserClient } from '@supabase/ssr'
+import { useToast } from '@/hooks/use-toast'
 import AuthCard, { AUTH_INPUT_STYLE, authInputFocus, authInputBlur, LoadingDots } from '@/components/auth-card'
 
 type PageState = 'form' | 'loading' | 'sent'
 
 export default function ForgotPasswordPage() {
+  const { toast } = useToast()
   const [email, setEmail] = useState('')
   const [pageState, setPageState] = useState<PageState>('form')
 
@@ -15,9 +18,32 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
     if (!email.trim()) return
     setPageState('loading')
-    // TODO: Replace with real password-reset call (Supabase resetPasswordForEmail, etc.)
-    await new Promise((res) => setTimeout(res, 1400))
-    setPageState('sent')
+
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+    )
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard/profile`,
+      })
+      if (error) throw error
+
+      toast({
+        title: 'Reset link sent',
+        description: 'Please check your email inbox.',
+        variant: 'success',
+      })
+      setPageState('sent')
+    } catch (err: any) {
+      toast({
+        title: 'Error sending reset link',
+        description: err.message || 'Something went wrong.',
+        variant: 'error',
+      })
+      setPageState('form')
+    }
   }
 
   return (

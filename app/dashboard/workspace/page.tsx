@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { apiClient } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
 import {
   Settings,
   Cpu,
@@ -173,6 +175,8 @@ function EngineToggle({
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function WorkspacePage() {
+  const { toast } = useToast()
+
   // General
   const [workspaceName, setWorkspaceName] = useState('JR Digital Hub')
   const [industry, setIndustry] = useState('Digital Marketing & Consulting')
@@ -193,20 +197,55 @@ export default function WorkspacePage() {
 
   async function handleSave() {
     setSaving(true)
-    // TODO: PATCH /api/v1/workspace/settings
-    await new Promise((res) => setTimeout(res, 900))
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      await apiClient.patch('/api/v1/workspace/settings', {
+        name: workspaceName.trim(),
+        industry: industry.trim(),
+        oracleActive,
+        cooActive,
+        cfoActive,
+        oracle_active: oracleActive,
+        coo_active: cooActive,
+        cfo_active: cfoActive,
+      })
+      setSaved(true)
+      toast({
+        title: 'Settings Saved',
+        description: 'Workspace configuration updated successfully.',
+        variant: 'success',
+      })
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err: any) {
+      toast({
+        title: 'Failed to save settings',
+        description: err.message || 'Something went wrong.',
+        variant: 'error',
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleGenerateKey() {
     setGenerating(true)
-    // TODO: POST /api/v1/workspace/api-keys
-    await new Promise((res) => setTimeout(res, 800))
-    const rand = Math.random().toString(36).slice(2, 18).padEnd(16, '0')
-    setApiKey(`zeno_live_${rand}`)
-    setGenerating(false)
+    try {
+      const data = await apiClient.post<any>('/api/v1/workspace/api-keys')
+      const generatedKey = data?.key || data?.apiKey || data?.api_key || 'zeno_live_key_failed'
+      setApiKey(generatedKey)
+      toast({
+        title: 'API Key Generated',
+        description: 'New API key generated successfully. Copy it now.',
+        variant: 'success',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Failed to generate key',
+        description: err.message || 'Something went wrong.',
+        variant: 'error',
+      })
+    } finally {
+      setGenerating(false)
+    }
   }
 
   function handleCopy() {
@@ -217,7 +256,9 @@ export default function WorkspacePage() {
   }
 
   const maskedKey = apiKey
-    ? `zeno_live_${'*'.repeat(16)}`
+    ? apiKey.startsWith('zeno_live_')
+      ? `zeno_live_${'*'.repeat(16)}`
+      : '****************'
     : null
 
   return (

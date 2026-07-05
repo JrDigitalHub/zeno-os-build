@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { CheckCircle2, Brain, Briefcase, BarChart3 } from 'lucide-react'
+import { apiClient } from '@/lib/api-client'
 
 const INDUSTRIES = [
   'Technology & SaaS',
@@ -71,7 +72,7 @@ export default function OnboardingPage() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>([])
 
   // Step 3 state
-  const [visibleLines, setVisibleLines] = useState<number[]>([])
+  const [terminalLines, setTerminalLines] = useState<{ text: string; status: 'ok' | 'agent' | 'final' | 'error' }[]>([])
   const [done, setDone] = useState(false)
 
   useEffect(() => {
@@ -79,22 +80,60 @@ export default function OnboardingPage() {
 
     const timers: ReturnType<typeof setTimeout>[] = []
 
-    BOOT_LINES.forEach((line, i) => {
+    const bootSequence0_3 = [
+      { text: 'Initializing Zeno OS kernel...', status: 'ok' as const },
+      { text: 'Booting Unified Neural Infrastructure...', status: 'ok' as const },
+      { text: 'Provisioning multi-tenant workspace...', status: 'ok' as const },
+      { text: 'Connecting to Go backend cluster...', status: 'ok' as const },
+    ]
+
+    bootSequence0_3.forEach((line, index) => {
       const t = setTimeout(() => {
-        setVisibleLines((prev) => [...prev, i])
-      }, line.delay)
+        setTerminalLines((prev) => [...prev, line])
+
+        if (index === 3) {
+          apiClient
+            .get<any>('/api/v1/wallet')
+            .then(() => {
+              const bootSequence4_9 = [
+                { text: 'Oracle agent connected.', status: 'agent' as const },
+                { text: 'COO agent connected.', status: 'agent' as const },
+                { text: 'CFO agent connected.', status: 'agent' as const },
+                { text: 'Securing enterprise TLS channel...', status: 'ok' as const },
+                { text: 'Neural mesh synchronized.', status: 'ok' as const },
+                { text: '> All systems operational. Launching Command Center...', status: 'final' as const },
+              ]
+
+              bootSequence4_9.forEach((l, i) => {
+                const tSub = setTimeout(() => {
+                  setTerminalLines((prev) => [...prev, l])
+                }, (i + 1) * 600)
+                timers.push(tSub)
+              })
+
+              const tDone = setTimeout(() => {
+                setDone(true)
+              }, 4000)
+              timers.push(tDone)
+
+              const tRedirect = setTimeout(() => {
+                router.push('/dashboard')
+              }, 5400)
+              timers.push(tRedirect)
+            })
+            .catch((err) => {
+              const errMsg = err instanceof Error ? err.message : 'Database trigger timeout.'
+              setTerminalLines((prev) => [
+                ...prev,
+                { text: `[ ERROR ] Connection failed: ${errMsg}`, status: 'error' as const },
+                { text: 'Halted boot sequence. Please try refreshing or verify system status.', status: 'error' as const },
+              ])
+              setDone(true)
+            })
+        }
+      }, index * 600)
       timers.push(t)
     })
-
-    const finalTimer = setTimeout(() => {
-      setDone(true)
-    }, 5800)
-    timers.push(finalTimer)
-
-    const redirectTimer = setTimeout(() => {
-      router.push('/dashboard')
-    }, 7200)
-    timers.push(redirectTimer)
 
     return () => timers.forEach(clearTimeout)
   }, [step, router])
@@ -397,13 +436,13 @@ export default function OnboardingPage() {
                 $ zeno boot --workspace=&quot;{companyName || 'enterprise'}&quot;
               </p>
               <div className="flex flex-col gap-1.5">
-                {BOOT_LINES.map((line, i) => (
+                {terminalLines.map((line, i) => (
                   <div
                     key={i}
                     className="flex items-start gap-3 transition-all"
                     style={{
-                      opacity: visibleLines.includes(i) ? 1 : 0,
-                      transform: visibleLines.includes(i) ? 'translateY(0)' : 'translateY(4px)',
+                      opacity: 1,
+                      transform: 'translateY(0)',
                       transitionDuration: '300ms',
                     }}
                   >
@@ -411,15 +450,17 @@ export default function OnboardingPage() {
                       <span
                         className="text-xs mt-0.5 flex-shrink-0"
                         style={{
-                          color: line.status === 'agent' ? '#4a9c5d' : '#c9a84c',
+                          color: line.status === 'error' ? '#e05252' : line.status === 'agent' ? '#4a9c5d' : '#c9a84c',
                         }}
                       >
-                        {line.status === 'agent' ? '[AGENT]' : '[ OK  ]'}
+                        {line.status === 'error' ? '[FAIL ]' : line.status === 'agent' ? '[AGENT]' : '[ OK  ]'}
                       </span>
                     )}
                     <span
                       style={{
-                        color: line.status === 'final'
+                        color: line.status === 'error'
+                          ? '#e05252'
+                          : line.status === 'final'
                           ? '#c9a84c'
                           : line.status === 'agent'
                           ? '#4a9c5d'

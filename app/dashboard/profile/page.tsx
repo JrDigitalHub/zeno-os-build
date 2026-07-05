@@ -1,7 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { User, Lock, Bell, Check } from 'lucide-react'
+import { createBrowserClient } from '@supabase/ssr'
+import { apiClient } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
+import { useAppContext } from '@/context/AppContext'
 
 // ── Shared primitives ──────────────────────────────────────────────────────
 
@@ -131,10 +135,20 @@ function Toggle({
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
+  const { toast } = useToast()
+  const { user } = useAppContext()
+
   // Personal info
-  const [fullName, setFullName] = useState('James Richardson')
-  const [email] = useState('james@jrdigitalhub.com')
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
   const [role] = useState('CEO')
+
+  useEffect(() => {
+    if (user) {
+      setFullName(user.name || '')
+      setEmail(user.email || '')
+    }
+  }, [user])
 
   // Security
   const [currentPw, setCurrentPw] = useState('')
@@ -154,27 +168,74 @@ export default function ProfilePage() {
 
   async function handleSave() {
     setSaving(true)
-    // TODO: POST /api/v1/profile/update
-    await new Promise((res) => setTimeout(res, 1000))
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+    )
+    try {
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { full_name: fullName.trim() }
+      })
+      if (authError) throw authError
+
+      await apiClient.post<any>('/api/v1/profile/update', {
+        name: fullName.trim(),
+      })
+
+      setSaved(true)
+      toast({
+        title: 'Profile Updated',
+        description: 'Your profile settings have been successfully synced.',
+        variant: 'success',
+      })
+      setTimeout(() => setSaved(false), 3000)
+    } catch (err: any) {
+      toast({
+        title: 'Failed to update profile',
+        description: err.message || 'Something went wrong.',
+        variant: 'error',
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleUpdatePassword() {
     if (!currentPw || !newPw || newPw !== confirmPw) return
     setPwSaving(true)
-    // TODO: POST /api/v1/profile/password
-    await new Promise((res) => setTimeout(res, 1000))
-    setPwSaving(false)
-    setPwSaved(true)
-    setCurrentPw('')
-    setNewPw('')
-    setConfirmPw('')
-    setTimeout(() => setPwSaved(false), 3000)
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+    )
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPw,
+      })
+      if (error) throw error
+
+      setPwSaved(true)
+      toast({
+        title: 'Password Updated',
+        description: 'Your credentials have been updated successfully.',
+        variant: 'success',
+      })
+      setCurrentPw('')
+      setNewPw('')
+      setConfirmPw('')
+      setTimeout(() => setPwSaved(false), 3000)
+    } catch (err: any) {
+      toast({
+        title: 'Failed to update password',
+        description: err.message || 'Something went wrong.',
+        variant: 'error',
+      })
+    } finally {
+      setPwSaving(false)
+    }
   }
 
   const pwValid = currentPw && newPw && newPw === confirmPw
+
 
   return (
     <div className="p-6 max-w-2xl mx-auto">

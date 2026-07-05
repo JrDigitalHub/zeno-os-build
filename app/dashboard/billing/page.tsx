@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { buildPolarUrl, POLAR_CHECKOUT_IDS } from '@/lib/polar-config'
 import { useAppContext } from '@/context/AppContext'
+import { apiClient } from '@/lib/api-client'
+import { useToast } from '@/hooks/use-toast'
 import {
   CreditCard,
   Zap,
@@ -160,6 +162,7 @@ function PricingModal({
   onSuccess: () => void
 }) {
   const router = useRouter()
+  const { toast } = useToast()
   const [region, setRegion] = useState<Region>('world')
   const [selectedPlan, setSelectedPlan] = useState<Plan>(PLANS[1]) // default Professional
   const [step, setStep] = useState<ModalStep>('pricing')
@@ -171,11 +174,28 @@ function PricingModal({
   // NOTE: handlePay is kept for the internal checkout step (fallback / Nigeria / Paystack)
   async function handlePay() {
     setPaying(true)
-    // TODO: integrate Paystack (nigeria) checkout here
-    await new Promise((res) => setTimeout(res, 2000))
-    setPaying(false)
-    setStep('success')
-    onSuccess()
+    try {
+      const response = await apiClient.post<any>('/api/v1/billing/checkout', {
+        plan: selectedPlan.key,
+        region,
+      })
+
+      const redirectUrl = response?.url || response?.checkoutUrl || response?.authorization_url || response?.data?.authorization_url
+      if (redirectUrl) {
+        window.location.href = redirectUrl
+      } else {
+        setStep('success')
+        onSuccess()
+      }
+    } catch (err: any) {
+      toast({
+        title: 'Checkout Failed',
+        description: err.message || 'Could not initialize payment gateway.',
+        variant: 'error',
+      })
+    } finally {
+      setPaying(false)
+    }
   }
 
   // Workspace ID — comes from AppContext (real value set by backend auth)
