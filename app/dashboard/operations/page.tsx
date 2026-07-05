@@ -14,6 +14,7 @@ import { useTokenVault } from '@/components/token-context'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/hooks/use-toast'
 import { useAppContext } from '@/context/AppContext'
+import { apiClient } from '@/lib/api-client'
 import {
   Sheet,
   SheetContent,
@@ -34,29 +35,15 @@ type Task = {
   priority: Priority
   assignee: string
   createdAt: string
+  status: Status
 }
 
 type Board = Record<Status, Task[]>
 
-// ── Mock subscription state ─────────────────────────────────────────────────
-const MOCK_TIER: SubscriptionTier = 'Trial'
-
-// ── Seed data ──────────────────────────────────────────────────────────────
-
-const INITIAL_BOARD: Board = {
-  backlog: [
-    { id: 1, title: 'Audit Q3 vendor contracts', description: 'Review all active vendor agreements before renewal window.', priority: 'High', assignee: 'S. Chen', createdAt: 'Jun 28' },
-    { id: 2, title: 'Set up Slack → CRM bridge', description: 'Automate deal stage updates from #sales channel.', priority: 'Medium', assignee: 'P. Nair', createdAt: 'Jun 29' },
-    { id: 3, title: 'Draft SLA for new clients', description: 'Prepare standard service level agreement template.', priority: 'Low', assignee: 'A. Okonkwo', createdAt: 'Jun 30' },
-  ],
-  'in-progress': [
-    { id: 4, title: 'Onboard three enterprise accounts', description: 'Coordinate kickoff calls and assign success managers.', priority: 'Critical', assignee: 'J. Reeves', createdAt: 'Jun 25' },
-    { id: 5, title: 'Migrate data warehouse to v2', description: 'Schema migration and ETL pipeline updates required.', priority: 'High', assignee: 'D. Park', createdAt: 'Jun 26' },
-  ],
-  completed: [
-    { id: 6, title: 'Launch Oracle beta access', description: 'Opened beta to 50 pilot users for lead intelligence module.', priority: 'Critical', assignee: 'E. Vasquez', createdAt: 'Jun 20' },
-    { id: 7, title: 'Legal review of ToS v2', description: 'Updated terms approved by counsel and published.', priority: 'High', assignee: 'M. Webb', createdAt: 'Jun 22' },
-  ],
+const EMPTY_BOARD: Board = {
+  backlog: [],
+  'in-progress': [],
+  completed: [],
 }
 
 // ── Priority badge ─────────────────────────────────────────────────────────
@@ -271,6 +258,7 @@ function CreateModal({
       priority,
       assignee: assignee.trim() || 'Unassigned',
       createdAt: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      status: 'backlog',
     })
     onClose()
   }
@@ -405,20 +393,78 @@ const COLS: Status[] = ['backlog', 'in-progress', 'completed']
 export default function OperationsPage() {
   const router = useRouter()
   const { consumeTokens } = useTokenVault()
-  const { tokenLimitHit } = useAppContext()
+  const { subscriptionTier, tokenLimitHit } = useAppContext()
 
-  const [board, setBoard] = useState<Board>(INITIAL_BOARD)
+  const [board, setBoard] = useState<Board>(EMPTY_BOARD)
   const [modalOpen, setModalOpen] = useState(false)
   const [terminalOpen, setTerminalOpen] = useState(false)
 
-  // ── 2-second loading skeleton on initial mount ─────────────────────────
+  // ── Real task loading from Go backend ──────────────────────────────────
   const [isLoading, setIsLoading] = useState(true)
   useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 2000)
-    return () => clearTimeout(t)
+    let cancelled = false
+    setIsLoading(true)
+
+    apiClient
+      .get<any>('/api/v1/sentinel/tasks')
+      .then((data) => {
+        if (cancelled) return
+        
+        const mappedTasks: Task[] = (Array.isArray(data) ? data : data?.tasks ?? []).map((t: any, index: number) => {
+          const rawId = typeof t.id === 'number' ? t.id : parseInt(String(t.id).replace(/\D/g, '')) || (index + 1);
+          
+          const rawPriority = String(t.priority || 'Medium').toLowerCase();
+          const priorityMap: Record<string, Priority> = {
+            critical: 'Critical',
+            high: 'High',
+            medium: 'Medium',
+            low: 'Low'
+          };
+          const priority = priorityMap[rawPriority] || 'Medium';
+
+          const rawStatus = String(t.status || 'backlog').toLowerCase().replace('_', '-');
+          let status: Status = 'backlog';
+          if (rawStatus === 'in-progress' || rawStatus === 'in_progress' || rawStatus === 'active') {
+            status = 'in-progress';
+          } else if (rawStatus === 'completed' || rawStatus === 'done') {
+            status = 'completed';
+          }
+
+          return {
+            id: rawId,
+            title: t.title || 'Untitled Task',
+            description: t.description || t.title || 'No description provided.',
+            priority,
+            assignee: t.assignee || t.team || 'S. Chen',
+            createdAt: t.createdAt || t.date || 'Jun 30',
+            status,
+          };
+        });
+
+        setBoard({
+          backlog: mappedTasks.filter((t) => t.status === 'backlog'),
+          'in-progress': mappedTasks.filter((t) => t.status === 'in-progress'),
+          completed: mappedTasks.filter((t) => t.status === 'completed'),
+        });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          toast({
+            variant: 'error',
+            title: 'Failed to load tasks',
+            description: err instanceof Error ? err.message : 'Error fetching from backend.',
+          })
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const subscriptionTier: SubscriptionTier = MOCK_TIER
 
   // ── Independent COO trial counter ──────────────────────────────────────
   const [cooTaskCount, setCooTaskCount] = useState(0)

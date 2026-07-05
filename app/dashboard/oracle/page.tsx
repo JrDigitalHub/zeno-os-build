@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { buildPolarUrl, POLAR_CHECKOUT_IDS } from '@/lib/polar-config'
 import { useAppContext } from '@/context/AppContext'
 import DirectAgentTerminal from '@/components/direct-agent-terminal'
+import { apiClient } from '@/lib/api-client'
+import { toast } from '@/hooks/use-toast'
 import {
   Search,
   X,
@@ -36,26 +38,6 @@ type Lead = {
 type DraftModalState = {
   open: boolean
   lead: Lead | null
-}
-
-// ── Seed data generator ────────────────────────────────────────────────────
-
-function generateLeads(query: string): Lead[] {
-  const companies = [
-    { company: 'Apex Systems', contact: 'Jordan Reeves', role: 'VP of Operations', domain: `${query.toLowerCase().replace(/\s+/g, '')}.io` },
-    { company: 'Meridian Capital', contact: 'Priya Nair', role: 'Chief Strategy Officer', domain: `meridian-${query.toLowerCase().replace(/\s+/g, '')}.com` },
-    { company: 'Nova Dynamics', contact: 'Samuel Chen', role: 'Head of Growth', domain: `novadynamics.co` },
-    { company: 'Lumen Ventures', contact: 'Aisha Okonkwo', role: 'Director of Partnerships', domain: `lumenventures.io` },
-    { company: 'Stratos Group', contact: 'Marcus Webb', role: 'CEO', domain: `stratosgroup.com` },
-    { company: 'Cypher Labs', contact: 'Elena Vasquez', role: 'CTO', domain: `cypherlabs.dev` },
-    { company: 'Helix Industries', contact: 'Daniel Park', role: 'VP Sales', domain: `helixind.com` },
-  ]
-  return companies.map((c, i) => ({
-    id: i + 1,
-    ...c,
-    status: (['Verified', 'Enriched', 'Unverified', 'Enriched', 'Verified', 'Unverified', 'Enriched'][i] as Lead['status']),
-    score: [92, 87, 74, 95, 68, 81, 79][i],
-  }))
 }
 
 // ── Status badge ───────────────────────────────────────────────────────────
@@ -688,34 +670,42 @@ export default function OraclePage() {
 
   const creditsExhausted = credits <= 0 && !upgraded
 
-  function handleSearch() {
+  async function handleSearch() {
     if (!query.trim() || creditsExhausted) return
-    if (!upgraded) setCredits((c) => Math.max(0, c - 1))
+    
     setLoading(true)
     setLeads([])
-    setProgress(0)
+    setProgress(5)
     setHasSearched(true)
 
-    // Simulate scraping progress
+    // Simulate progress updates during active network request
     const interval = setInterval(() => {
       setProgress((p) => {
-        if (p >= 95) {
-          clearInterval(interval)
-          return p
-        }
-        return p + Math.random() * 18
+        if (p >= 90) return p
+        return p + Math.random() * 10
       })
-    }, 220)
+    }, 150)
 
-    setTimeout(() => {
+    try {
+      if (!upgraded) setCredits((c) => Math.max(0, c - 1))
+      const data = await apiClient.post<Lead[]>('/api/v1/oracle/scan', { query })
       clearInterval(interval)
       setProgress(100)
-      setTimeout(() => {
-        setLeads(generateLeads(query))
-        setLoading(false)
-        setProgress(0)
-      }, 400)
-    }, 2200)
+      
+      // Delay slightly so user sees 100% before it hides
+      await new Promise((r) => setTimeout(r, 300))
+      setLeads(data)
+    } catch (err: any) {
+      clearInterval(interval)
+      toast({
+        variant: 'error',
+        title: 'Error qualified leads',
+        description: err instanceof Error ? err.message : 'Failed to scan domain.',
+      })
+    } finally {
+      setLoading(false)
+      setProgress(0)
+    }
   }
 
   function openDraft(lead: Lead) {

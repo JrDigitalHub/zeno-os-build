@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic';
 'use client'
+
+export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -214,7 +215,7 @@ export default function CommandCenterPage() {
       })
 
     apiClient
-      .get<CooStatus>('/api/v1/coo/tasks')
+      .get<CooStatus>('/api/v1/sentinel/tasks')
       .then((data) => {
         if (!cancelled) setCooData(data)
       })
@@ -223,7 +224,7 @@ export default function CommandCenterPage() {
       })
 
     apiClient
-      .get<CfoStatus>('/api/v1/cfo/ledger')
+      .get<CfoStatus>('/api/v1/modeler/ledger')
       .then((data) => {
         if (!cancelled) setCfoData(data)
       })

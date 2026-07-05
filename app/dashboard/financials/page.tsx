@@ -31,6 +31,7 @@ import { useTokenVault } from '@/components/token-context'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/hooks/use-toast'
 import { useAppContext } from '@/context/AppContext'
+import { apiClient } from '@/lib/api-client'
 import {
   Sheet,
   SheetContent,
@@ -53,28 +54,6 @@ type Transaction = {
   type: TxType
 }
 
-// ── Mock subscription state ─────────────────────────────────────────────────
-const MOCK_TIER: SubscriptionTier = 'Trial'
-
-// ── Seed data ──────────────────────────────────────────────────────────────
-
-const ALL_TRANSACTIONS: Transaction[] = [
-  { id: 'TXN-0041', date: 'Jun 30, 2026', description: 'Enterprise license — Apex Systems',    category: 'Revenue',    amount: 12400,  type: 'incoming' },
-  { id: 'TXN-0040', date: 'Jun 29, 2026', description: 'Cloud infrastructure (Vercel)',        category: 'Ops',        amount: -2300,  type: 'outgoing' },
-  { id: 'TXN-0039', date: 'Jun 28, 2026', description: 'Consulting retainer — Meridian',      category: 'Revenue',    amount: 8750,   type: 'incoming' },
-  { id: 'TXN-0038', date: 'Jun 27, 2026', description: 'Payroll disbursement — June',         category: 'Payroll',    amount: -18500, type: 'outgoing' },
-  { id: 'TXN-0037', date: 'Jun 26, 2026', description: 'Oracle module subscription × 12',     category: 'Revenue',    amount: 4800,   type: 'incoming' },
-  { id: 'TXN-0036', date: 'Jun 25, 2026', description: 'Legal fees — ToS revision',           category: 'Legal',      amount: -3200,  type: 'outgoing' },
-  { id: 'TXN-0035', date: 'Jun 24, 2026', description: 'SaaS tooling (Notion, Linear, Figma)', category: 'Software',  amount: -940,   type: 'outgoing' },
-  { id: 'TXN-0034', date: 'Jun 23, 2026', description: 'SME partnership revenue — Nova',      category: 'Revenue',    amount: 6200,   type: 'incoming' },
-  { id: 'TXN-0033', date: 'Jun 22, 2026', description: 'Marketing & paid acquisition',        category: 'Marketing',  amount: -5100,  type: 'outgoing' },
-  { id: 'TXN-0032', date: 'Jun 21, 2026', description: 'Annual insurance premium',            category: 'Insurance',  amount: -1800,  type: 'outgoing' },
-  { id: 'TXN-0031', date: 'Jun 20, 2026', description: 'Beta revenue — Helix Industries',     category: 'Revenue',    amount: 3300,   type: 'incoming' },
-  { id: 'TXN-0030', date: 'Jun 19, 2026', description: 'R&D contractor — AI pipeline',        category: 'R&D',        amount: -7600,  type: 'outgoing' },
-  { id: 'TXN-0029', date: 'Jun 18, 2026', description: 'Lumen Ventures pilot deal',           category: 'Revenue',    amount: 9100,   type: 'incoming' },
-  { id: 'TXN-0028', date: 'Jun 17, 2026', description: 'Office & equipment costs',            category: 'Ops',        amount: -1200,  type: 'outgoing' },
-  { id: 'TXN-0027', date: 'Jun 16, 2026', description: 'Grant — SME Innovation Fund',         category: 'Grant',      amount: 15000,  type: 'incoming' },
-]
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -219,10 +198,29 @@ function IngestionModal({
 
   async function handleProcess() {
     setState('processing')
-    await new Promise((res) => setTimeout(res, 1800))
-    setSummary({ files: files.map((f) => f.name), url: url.trim(), text: rawText.trim().length > 0 })
-    setState('done')
-    onProcessed()
+    try {
+      let payload: any = {}
+      if (tab === 'file') {
+        payload = { files: files.map((f) => f.name) }
+      } else if (tab === 'url') {
+        payload = { url: url.trim() }
+      } else if (tab === 'text') {
+        payload = { text: rawText.trim() }
+      }
+
+      await apiClient.post('/api/v1/modeler/ledger', payload)
+
+      setSummary({ files: files.map((f) => f.name), url: url.trim(), text: rawText.trim().length > 0 })
+      setState('done')
+      onProcessed()
+    } catch (err: any) {
+      toast({
+        variant: 'error',
+        title: 'Error processing data',
+        description: err instanceof Error ? err.message : 'Failed to ingest financial data.',
+      })
+      setState('idle')
+    }
   }
 
   const hasInput = files.length > 0 || url.trim() !== '' || rawText.trim() !== ''
@@ -478,20 +476,50 @@ function LedgerEmptyState({ onUpload }: { onUpload: () => void }) {
 export default function FinancialsPage() {
   const router = useRouter()
   const { consumeTokens } = useTokenVault()
-  const { tokenLimitHit } = useAppContext()
+  const { subscriptionTier, tokenLimitHit } = useAppContext()
 
   const [filter, setFilter] = useState<FilterType>('all')
   const [ingestionOpen, setIngestionOpen] = useState(false)
   const [terminalOpen, setTerminalOpen] = useState(false)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
 
-  // ── 2-second loading skeleton on initial mount ─────────────────────────
+  // ── Real data loading from Go backend ──────────────────────────────────
   const [isLoading, setIsLoading] = useState(true)
-  useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 2000)
-    return () => clearTimeout(t)
+
+  const fetchLedger = useCallback((showLoading = false) => {
+    if (showLoading) setIsLoading(true)
+    apiClient
+      .get<any>('/api/v1/modeler/ledger')
+      .then((data) => {
+        const rawTxns = Array.isArray(data) ? data : data?.transactions ?? []
+        const mapped: Transaction[] = rawTxns.map((t: any, index: number) => {
+          const type: TxType = t.type === 'credit' || t.type === 'incoming' || t.amount > 0 ? 'incoming' : 'outgoing'
+          return {
+            id: t.id || `TXN-${String(index + 1).padStart(4, '0')}`,
+            date: t.date || t.createdAt || 'Jun 30, 2026',
+            description: t.description || t.label || 'Transaction',
+            category: t.category || 'General',
+            amount: typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0,
+            type,
+          }
+        })
+        setTransactions(mapped)
+      })
+      .catch((err) => {
+        toast({
+          variant: 'error',
+          title: 'Failed to load ledger',
+          description: err instanceof Error ? err.message : 'Error fetching from backend.',
+        })
+      })
+      .finally(() => {
+        if (showLoading) setIsLoading(false)
+      })
   }, [])
 
-  const subscriptionTier: SubscriptionTier = MOCK_TIER
+  useEffect(() => {
+    fetchLedger(true)
+  }, [fetchLedger])
 
   // ── Independent CFO upload counter ─────────────────────────────────────
   const [cfoUploadCount, setCfoUploadCount] = useState(0)
@@ -521,8 +549,8 @@ export default function FinancialsPage() {
   }
 
   const visible = useMemo(
-    () => filter === 'all' ? ALL_TRANSACTIONS : ALL_TRANSACTIONS.filter((t) => t.type === filter),
-    [filter]
+    () => filter === 'all' ? transactions : transactions.filter((t) => t.type === filter),
+    [filter, transactions]
   )
 
   const totalBalance  = useMemo(() => visible.reduce((s, t) => s + t.amount, 0), [visible])
@@ -562,7 +590,7 @@ export default function FinancialsPage() {
                 Cash Flow &amp; Transactions
               </h1>
               <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
-                {isLoading ? '—' : `Showing ${visible.length} of ${ALL_TRANSACTIONS.length} transactions`}
+                {isLoading ? '—' : `Showing ${visible.length} of ${transactions.length} transactions`}
               </p>
             </div>
             <button
@@ -584,6 +612,7 @@ export default function FinancialsPage() {
               onProcessed={() => {
                 recordCfoUpload()
                 setIngestionOpen(false)
+                fetchLedger(false)
                 // ── Success toast ──
                 toast({
                   variant: 'success',
