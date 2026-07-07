@@ -1,33 +1,23 @@
-# zeno-os-build
+# zeno-os
+The Zeno Operating System. A unified, vantablack neural interface for real-time orchestration and God-mode control of Zeno-Work and Zeno-Action.
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
 
-## Built with v0
+# Zeno OS: The Unified Neural Interface
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+## 🖥️ The Sovereign Flight Deck
+Zeno OS is the centralized, Vantablack-themed command center for the Zeno ecosystem. It provides a real-time "God-Mode" view into the operations of both Zeno-Work and Zeno-Action.
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_r9y4EcEeTVQ3TR0dm0ONINxqsnYN)
+### ⚡ Key Features
+- **The Pulse Feed:** Real-time event stream from the Zeno-Work AOO modules.
+- **Motion Monitoring:** Live telemetry and 3D visualization of active Zeno-Action robotic units.
+- **Neural Intercom:** A direct voice/text bridge to the proprietary Zeno reasoning core for proactive consultation.
+- **Global Map:** Geospatial visualization of lead-generation and logistics activities.
 
-## Getting Started
+### 💻 Technical Stack
+- **Framework:** Next.js (App Router) + Tailwind CSS.
+- **Theme:** High-contrast Vantablack/Obsidian.
+- **Communication:** WebSockets / gRPC for real-time data sync with the engine backends.
+- **Visualization:** Three.js for real-time 3D robotics monitoring.
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Learn More
-
-To learn more, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+---
+**"Command the Infrastructure. Master the Economy."**
