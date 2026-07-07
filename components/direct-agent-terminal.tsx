@@ -5,6 +5,7 @@ import { Send, Terminal, Sparkles } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiClient, ApiError } from '@/lib/api-client'
 import { toast } from '@/hooks/use-toast'
+import { useAppContext } from '@/context/AppContext'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,8 @@ export default function DirectAgentTerminal({
   /** Extra class names — useful when embedding inside the mobile Sheet */
   className?: string
 }) {
+  const { user } = useAppContext()
+  const workspaceId = user?.workspace_id
   const cfg = AGENT_CONFIG[agentRole]
 
   const [messages, setMessages] = useState<Message[]>([
@@ -112,7 +115,7 @@ export default function DirectAgentTerminal({
 
     try {
       const data = await apiClient.post<{ response: string }>('/api/v1/chat', {
-        workspace_id: 'test_workspace_1',
+        workspace_id: workspaceId || '',
         agent_type: agentRole,
         message: text,
       })

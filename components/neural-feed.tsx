@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Bell, AlertTriangle, CheckCircle2, Sparkles, X, Clock } from 'lucide-react'
+import { apiClient } from '@/lib/api-client'
+import { toast } from '@/hooks/use-toast'
 import {
   Sheet,
   SheetContent,
@@ -30,40 +32,7 @@ interface FeedAlert {
   }
 }
 
-// ── Static feed data ─────────────────────────────────────────────────────────
-
-const INITIAL_FEED: FeedAlert[] = [
-  {
-    id: 'cfo-1',
-    agent: 'CFO',
-    level: 'warning',
-    title: 'Cash Flow Dip Detected',
-    body: 'Projected 14-day runway shows a £18,400 shortfall based on current burn rate and pending receivables. Immediate review recommended before Friday payroll cycle.',
-    timestamp: '2 mins ago',
-    read: false,
-    action: { label: 'Review Ledger', href: '/dashboard/financials' },
-  },
-  {
-    id: 'coo-1',
-    agent: 'COO',
-    level: 'success',
-    title: 'Task Bottleneck Resolved',
-    body: 'A 3-task blockage in the "Q3 Product Launch" pipeline was detected and automatically re-assigned to available team members. Velocity is back on track.',
-    timestamp: '47 mins ago',
-    read: false,
-    action: { label: 'View Kanban', href: '/dashboard/operations' },
-  },
-  {
-    id: 'oracle-1',
-    agent: 'Oracle',
-    level: 'info',
-    title: '15 High-Intent Leads Discovered',
-    body: 'Overnight scan across 6 target domains returned 15 decision-maker contacts with intent signals matching your ICP. 9 have verified email addresses ready for outreach.',
-    timestamp: '6 hrs ago',
-    read: false,
-    action: { label: 'View Leads', href: '/dashboard/oracle' },
-  },
-]
+// ── Feed data ───────────────────────────────────────────────────────────────
 
 // ── Accent config per agent ─────────────────────────────────────────────────
 
@@ -137,7 +106,40 @@ export function NeuralFeedTrigger({
 export function NeuralFeed() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [feed, setFeed] = useState<FeedAlert[]>(INITIAL_FEED)
+  const [feed, setFeed] = useState<FeedAlert[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    apiClient
+      .get<any>('/api/v1/sentinel/alerts')
+      .then((data) => {
+        if (cancelled) return
+        const rawAlerts = Array.isArray(data) ? data : data?.alerts ?? []
+        const mapped: FeedAlert[] = rawAlerts.map((a: any, index: number) => ({
+          id: a.id || `alert-${index + 1}`,
+          agent: a.agent || 'Oracle',
+          level: a.level || 'info',
+          title: a.title || 'System Alert',
+          body: a.body || '',
+          timestamp: a.timestamp || 'Just now',
+          read: a.read ?? false,
+          action: a.action ? { label: a.action.label || 'View', href: a.action.href || '#' } : undefined,
+        }))
+        setFeed(mapped)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        toast({
+          variant: 'error',
+          title: 'Failed to load alerts',
+          description: err instanceof Error ? err.message : 'Error fetching alerts from backend.',
+        })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const unreadCount = feed.filter((a) => !a.read).length
 

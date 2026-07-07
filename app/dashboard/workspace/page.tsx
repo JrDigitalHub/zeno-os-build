@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { apiClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -178,8 +178,8 @@ export default function WorkspacePage() {
   const { toast } = useToast()
 
   // General
-  const [workspaceName, setWorkspaceName] = useState('JR Digital Hub')
-  const [industry, setIndustry] = useState('Digital Marketing & Consulting')
+  const [workspaceName, setWorkspaceName] = useState('')
+  const [industry, setIndustry] = useState('')
 
   // Engine toggles
   const [oracleActive, setOracleActive] = useState(true)
@@ -190,6 +190,30 @@ export default function WorkspacePage() {
   const [apiKey, setApiKey] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [generating, setGenerating] = useState(false)
+
+  // Load settings on mount
+  useEffect(() => {
+    let cancelled = false
+    apiClient
+      .get<any>('/api/v1/workspace/settings')
+      .then((data) => {
+        if (cancelled || !data) return
+        setWorkspaceName(data.name || data.workspaceName || '')
+        setIndustry(data.industry || '')
+        setOracleActive(data.oracleActive ?? data.oracle_active ?? true)
+        setCooActive(data.cooActive ?? data.coo_active ?? true)
+        setCfoActive(data.cfoActive ?? data.cfo_active ?? false)
+        if (data.apiKey || data.api_key) {
+          setApiKey(data.apiKey || data.api_key)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load workspace settings', err)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Save
   const [saving, setSaving] = useState(false)

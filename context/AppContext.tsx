@@ -116,17 +116,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setSubscriptionTier(data.subscription_tier)
 
         // Parse user profile and workspace info from backend response
-        const name = data.user?.name || data.user_name || 'James Reeves'
-        const email = data.user?.email || data.user_email || 'james@acmecorp.io'
-        const initials = data.user?.initials || data.user_initials || 'JR'
+        const name = data.user?.name || data.user_name || ''
+        const email = data.user?.email || data.user_email || ''
+        const initials = data.user?.initials || data.user_initials || ''
         const workspace_id = data.workspace_id || undefined
 
-        setUser({
-          name,
-          email,
-          initials,
-          workspace_id,
-        })
+        if (name || email) {
+          setUser({
+            name,
+            email,
+            initials,
+            workspace_id,
+          })
+        } else {
+          setUser(null)
+        }
       })
       .catch(() => {
         // Silently swallow — UI falls back to null user/0 balance;

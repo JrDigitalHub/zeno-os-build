@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { buildPolarUrl, POLAR_CHECKOUT_IDS } from '@/lib/polar-config'
 import { useAppContext } from '@/context/AppContext'
@@ -47,12 +47,7 @@ interface Plan {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const INVOICES: Invoice[] = [
-  { id: 'INV-0041', date: '01 Jun 2026', description: 'Zeno OS Metered Trial — May 2026',  amount: '$0.00',   status: 'Paid'    },
-  { id: 'INV-0035', date: '01 May 2026', description: 'Zeno OS Metered Trial — Apr 2026',  amount: '$0.00',   status: 'Paid'    },
-  { id: 'INV-0029', date: '01 Apr 2026', description: 'Zeno OS Metered Trial — Mar 2026',  amount: '$0.00',   status: 'Paid'    },
-  { id: 'INV-0022', date: '01 Mar 2026', description: 'Zeno OS Metered Trial — Feb 2026',  amount: '$18.40',  status: 'Pending' },
-]
+
 
 const PLANS: Plan[] = [
   {
@@ -706,8 +701,49 @@ function PricingModal({
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function BillingPage() {
+  const router = useRouter()
+  const { toast } = useToast()
   const [pricingOpen, setPricingOpen] = useState(false)
   const [upgraded, setUpgraded] = useState(false)
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setIsLoading(true)
+
+    apiClient
+      .get<any>('/api/v1/modeler/invoices')
+      .then((data) => {
+        if (cancelled) return
+        const rawInvoices = Array.isArray(data) ? data : data?.invoices ?? []
+        const mapped: Invoice[] = rawInvoices.map((inv: any, index: number) => {
+          return {
+            id: inv.id || `INV-${String(index + 1).padStart(4, '0')}`,
+            date: inv.date || inv.createdAt || '01 Jun 2026',
+            description: inv.description || inv.label || 'Zeno OS Compute Invoice',
+            amount: inv.amount || '$0.00',
+            status: inv.status || 'Paid',
+          }
+        })
+        setInvoices(mapped)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        toast({
+          variant: 'error',
+          title: 'Failed to load invoices',
+          description: err instanceof Error ? err.message : 'Error fetching billing history.',
+        })
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [toast])
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
@@ -828,52 +864,66 @@ export default function BillingPage() {
                 </tr>
               </thead>
               <tbody>
-                {INVOICES.map((inv, i) => (
-                  <tr
-                    key={inv.id}
-                    style={{
-                      borderBottom: i < INVOICES.length - 1 ? '1px solid rgba(201,168,76,0.06)' : 'none',
-                      background: i % 2 === 0 ? 'transparent' : 'rgba(201,168,76,0.02)',
-                    }}
-                  >
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-mono" style={{ color: '#c9a84c' }}>{inv.id}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-mono" style={{ color: '#c0cdd8' }}>{inv.date}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs" style={{ color: '#c0cdd8' }}>{inv.description}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-xs font-mono font-semibold" style={{ color: '#f0f4f8' }}>{inv.amount}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full"
-                        style={{
-                          background: inv.status === 'Paid' ? 'rgba(74,156,93,0.12)' : 'rgba(224,160,82,0.12)',
-                          color: inv.status === 'Paid' ? '#4a9c5d' : '#e0a052',
-                          border: `1px solid ${inv.status === 'Paid' ? 'rgba(74,156,93,0.25)' : 'rgba(224,160,82,0.25)'}`,
-                        }}
-                      >
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        className="flex items-center gap-1 text-[11px] font-mono transition-all"
-                        style={{ color: '#7a95b0' }}
-                        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#c9a84c')}
-                        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#7a95b0')}
-                        aria-label={`Download ${inv.id}`}
-                      >
-                        <Download size={13} />
-                        PDF
-                      </button>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center text-xs font-mono" style={{ color: '#7a95b0' }}>
+                      Loading invoice history...
                     </td>
                   </tr>
-                ))}
+                ) : invoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center text-xs font-mono" style={{ color: '#7a95b0' }}>
+                      No invoices found.
+                    </td>
+                  </tr>
+                ) : (
+                  invoices.map((inv, i) => (
+                    <tr
+                      key={inv.id}
+                      style={{
+                        borderBottom: i < invoices.length - 1 ? '1px solid rgba(201,168,76,0.06)' : 'none',
+                        background: i % 2 === 0 ? 'transparent' : 'rgba(201,168,76,0.02)',
+                      }}
+                    >
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-mono" style={{ color: '#c9a84c' }}>{inv.id}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-mono" style={{ color: '#c0cdd8' }}>{inv.date}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs" style={{ color: '#c0cdd8' }}>{inv.description}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-mono font-semibold" style={{ color: '#f0f4f8' }}>{inv.amount}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full"
+                          style={{
+                            background: inv.status === 'Paid' ? 'rgba(74,156,93,0.12)' : 'rgba(224,160,82,0.12)',
+                            color: inv.status === 'Paid' ? '#4a9c5d' : '#e0a052',
+                            border: `1px solid ${inv.status === 'Paid' ? 'rgba(74,156,93,0.25)' : 'rgba(224,160,82,0.25)'}`,
+                          }}
+                        >
+                          {inv.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          className="flex items-center gap-1 text-[11px] font-mono transition-all"
+                          style={{ color: '#7a95b0' }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#c9a84c')}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#7a95b0')}
+                          aria-label={`Download ${inv.id}`}
+                        >
+                          <Download size={13} />
+                          PDF
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

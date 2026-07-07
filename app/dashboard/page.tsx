@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
+import { toast } from '@/hooks/use-toast'
 import {
   Zap,
   DollarSign,
@@ -39,40 +40,7 @@ interface CfoStatus {
   transactions: { label: string; amount: number; date: string; type: 'credit' | 'debit' }[]
 }
 
-// ─── Stub data (replace with real API calls) ──────────────────────────────────
-
-const ORACLE_STUB: OracleStatus = {
-  totalLeads: 347,
-  activeScans: 4,
-  targets: [
-    { domain: 'techcrunch.com', status: 'scanning', leads: 28 },
-    { domain: 'linkedin.com/feed', status: 'active', leads: 142 },
-    { domain: 'g2.com/categories/crm', status: 'active', leads: 91 },
-    { domain: 'producthunt.com', status: 'queued', leads: 0 },
-  ],
-}
-
-const COO_STUB: CooStatus = {
-  tasks: [
-    { id: 'T-091', title: 'Q3 Sales Outreach Pipeline Review', team: 'Sales', status: 'in_progress', priority: 'high' },
-    { id: 'T-092', title: 'Vendor Contract Renewal — AWS', team: 'Ops', status: 'pending', priority: 'medium' },
-    { id: 'T-093', title: 'Onboarding Workflow Automation', team: 'Product', status: 'completed', priority: 'high' },
-    { id: 'T-094', title: 'ISO 27001 Audit Preparation', team: 'Compliance', status: 'in_progress', priority: 'critical' },
-    { id: 'T-095', title: 'Team Capacity Planning — H2', team: 'HR', status: 'pending', priority: 'low' },
-  ],
-}
-
-const CFO_STUB: CfoStatus = {
-  balance: 284_950.0,
-  inflow: 128_400.0,
-  outflow: 51_200.0,
-  transactions: [
-    { label: 'Enterprise SaaS License — ClientCo', amount: 18_000, date: 'Jun 28', type: 'credit' },
-    { label: 'AWS Infrastructure — Jun', amount: 9_420, date: 'Jun 27', type: 'debit' },
-    { label: 'Retainer Payment — Consulting', amount: 24_000, date: 'Jun 26', type: 'credit' },
-    { label: 'Payroll Processing — Jun', amount: 38_500, date: 'Jun 25', type: 'debit' },
-  ],
-}
+// ─── Metrics and Status ───────────────────────────────────────────────────────
 
 // ─── Helper components ────────────────────────────────────────────────────────
 
@@ -206,30 +174,113 @@ export default function CommandCenterPage() {
     let cancelled = false
 
     apiClient
-      .get<OracleStatus>('/api/v1/oracle/status')
+      .get<any>('/api/v1/oracle/scan')
       .then((data) => {
-        if (!cancelled) setOracleData(data)
+        if (cancelled) return
+        let targets: any[] = []
+        let totalLeads = 0
+        let activeScans = 0
+        if (data && typeof data === 'object') {
+          if (Array.isArray(data)) {
+            totalLeads = data.length
+            const domains = Array.from(new Set(data.map((l: any) => l.domain || l.company).filter(Boolean)))
+            targets = domains.map((domain: any) => {
+              const domainLeads = data.filter((l: any) => (l.domain || l.company) === domain)
+              const status = domainLeads.some((l: any) => l.status === 'scanning' || l.status === 'active') ? 'scanning' : 'active'
+              return {
+                domain,
+                status,
+                leads: domainLeads.length,
+              }
+            })
+            activeScans = targets.filter(t => t.status === 'scanning').length
+          } else {
+            targets = Array.isArray(data.targets) ? data.targets : []
+            totalLeads = typeof data.totalLeads === 'number' ? data.totalLeads : (data.total_leads ?? 0)
+            activeScans = typeof data.activeScans === 'number' ? data.activeScans : (data.active_scans ?? 0)
+          }
+        }
+        setOracleData({ targets, totalLeads, activeScans })
       })
-      .catch(() => {
-        if (!cancelled) setOracleData(ORACLE_STUB)
+      .catch((err) => {
+        if (cancelled) return
+        toast({
+          variant: 'error',
+          title: 'Failed to load Oracle data',
+          description: err instanceof Error ? err.message : 'Error fetching from backend.',
+        })
       })
 
     apiClient
-      .get<CooStatus>('/api/v1/sentinel/tasks')
+      .get<any>('/api/v1/sentinel/tasks')
       .then((data) => {
-        if (!cancelled) setCooData(data)
+        if (cancelled) return
+        const rawTasks = Array.isArray(data) ? data : data?.tasks ?? []
+        const tasks = rawTasks.map((t: any, index: number) => {
+          const rawStatus = String(t.status || 'pending').toLowerCase()
+          let status = 'pending'
+          if (rawStatus === 'in-progress' || rawStatus === 'in_progress' || rawStatus === 'active') {
+            status = 'in_progress'
+          } else if (rawStatus === 'completed' || rawStatus === 'done') {
+            status = 'completed'
+          }
+          return {
+            id: t.id || `T-${String(index + 1).padStart(3, '0')}`,
+            title: t.title || 'Untitled Task',
+            team: t.team || t.assignee || 'Ops',
+            status,
+            priority: String(t.priority || 'medium').toLowerCase(),
+          }
+        })
+        setCooData({ tasks })
       })
-      .catch(() => {
-        if (!cancelled) setCooData(COO_STUB)
+      .catch((err) => {
+        if (cancelled) return
+        toast({
+          variant: 'error',
+          title: 'Failed to load COO tasks',
+          description: err instanceof Error ? err.message : 'Error fetching from backend.',
+        })
       })
 
     apiClient
-      .get<CfoStatus>('/api/v1/modeler/ledger')
+      .get<any>('/api/v1/modeler/ledger')
       .then((data) => {
-        if (!cancelled) setCfoData(data)
+        if (cancelled) return
+        let balance = 0
+        let inflow = 0
+        let outflow = 0
+        let transactions: any[] = []
+        if (data && typeof data === 'object') {
+          if (Array.isArray(data)) {
+            transactions = data
+            inflow = transactions.filter((t: any) => t.amount > 0 || t.type === 'credit' || t.type === 'incoming').reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0)
+            outflow = transactions.filter((t: any) => t.amount < 0 || t.type === 'debit' || t.type === 'outgoing').reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0)
+            balance = inflow - outflow
+          } else {
+            balance = typeof data.balance === 'number' ? data.balance : parseFloat(data.balance) || 0
+            inflow = typeof data.inflow === 'number' ? data.inflow : parseFloat(data.inflow) || 0
+            outflow = typeof data.outflow === 'number' ? data.outflow : parseFloat(data.outflow) || 0
+            transactions = Array.isArray(data.transactions) ? data.transactions : []
+          }
+        }
+        const mappedTransactions = transactions.map((t: any) => {
+          return {
+            label: t.label || t.description || 'Transaction',
+            amount: typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0,
+            date: t.date || 'Jun 30',
+            type: t.type === 'credit' || t.type === 'incoming' || t.amount > 0 ? 'credit' : 'debit',
+          }
+        })
+        setCfoData({ balance, inflow, outflow, transactions: mappedTransactions })
       })
-      .catch(() => {
-        if (!cancelled) setCfoData(CFO_STUB)
+      .catch((err) => {
+        if (cancelled) return
+        toast({
+          variant: 'error',
+          title: 'Failed to load CFO ledger',
+          description: err instanceof Error ? err.message : 'Error fetching from backend.',
+        })
       })
 
     return () => {
