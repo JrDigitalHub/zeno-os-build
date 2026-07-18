@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { User, Lock, Bell, Check } from 'lucide-react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { User, Lock, Bell, Check, Info } from 'lucide-react'
 import { createBrowserClient } from '@supabase/ssr'
 import { apiClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
@@ -134,9 +135,14 @@ function Toggle({
 
 // ── Page ──────────────────────────────────────────────────────────────────
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const { toast } = useToast()
   const { user } = useAppContext()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  // Detect password-reset flow (user arrived via emailed reset link)
+  const isResetFlow = searchParams.get('reset') === 'true'
 
   // Personal info
   const [fullName, setFullName] = useState('')
@@ -201,13 +207,46 @@ export default function ProfilePage() {
   }
 
   async function handleUpdatePassword() {
-    if (!currentPw || !newPw || newPw !== confirmPw) return
+    // In reset-flow mode (arrived via password-reset email), currentPw is not required.
+    // In normal mode, currentPw is required for re-authentication.
+    if (!isResetFlow && !currentPw) return
+    if (!newPw || newPw !== confirmPw) return
+
     setPwSaving(true)
     const supabase = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
     )
     try {
+      // Bug 1 fix: In normal flow, verify the current password first
+      // by re-authenticating with signInWithPassword.
+      if (!isResetFlow) {
+        const userEmail = user?.email
+        if (!userEmail) {
+          toast({
+            title: 'Unable to verify identity',
+            description: 'Could not determine your email address. Please refresh and try again.',
+            variant: 'error',
+          })
+          setPwSaving(false)
+          return
+        }
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: userEmail,
+          password: currentPw,
+        })
+        if (signInError) {
+          toast({
+            title: 'Current password incorrect',
+            description: 'The current password you entered is wrong. Please try again.',
+            variant: 'error',
+          })
+          setPwSaving(false)
+          return
+        }
+      }
+
+      // Now update to the new password
       const { error } = await supabase.auth.updateUser({
         password: newPw,
       })
@@ -222,6 +261,13 @@ export default function ProfilePage() {
       setCurrentPw('')
       setNewPw('')
       setConfirmPw('')
+
+      // Bug 2 fix: After successful reset-flow password update, clear the
+      // reset param so a page refresh uses normal password-change flow.
+      if (isResetFlow) {
+        router.replace('/dashboard/profile')
+      }
+
       setTimeout(() => setPwSaved(false), 3000)
     } catch (err: any) {
       toast({
@@ -234,7 +280,11 @@ export default function ProfilePage() {
     }
   }
 
-  const pwValid = currentPw && newPw && newPw === confirmPw
+  // In reset mode, only new password + confirmation are required.
+  // In normal mode, current password is also required.
+  const pwValid = isResetFlow
+    ? newPw && newPw === confirmPw
+    : currentPw && newPw && newPw === confirmPw
 
 
   return (
@@ -303,13 +353,27 @@ export default function ProfilePage() {
         {/* Security */}
         <SectionCard title="Security" icon={Lock}>
           <div className="flex flex-col gap-4">
-            <Field
-              label="Current Password"
-              type="password"
-              value={currentPw}
-              onChange={setCurrentPw}
-              placeholder="Enter current password"
-            />
+            {isResetFlow ? (
+              <div
+                className="flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-mono"
+                style={{
+                  background: 'rgba(201,168,76,0.06)',
+                  border: '1px solid rgba(201,168,76,0.2)',
+                  color: '#c9a84c',
+                }}
+              >
+                <Info size={14} style={{ flexShrink: 0 }} />
+                Enter your new password below.
+              </div>
+            ) : (
+              <Field
+                label="Current Password"
+                type="password"
+                value={currentPw}
+                onChange={setCurrentPw}
+                placeholder="Enter current password"
+              />
+            )}
             <Field
               label="New Password"
               type="password"
@@ -382,5 +446,13 @@ export default function ProfilePage() {
         </SectionCard>
       </div>
     </div>
+  )
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense>
+      <ProfilePageContent />
+    </Suspense>
   )
 }

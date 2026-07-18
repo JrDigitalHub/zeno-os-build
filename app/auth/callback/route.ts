@@ -5,10 +5,18 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function GET(request: NextRequest) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
+    const type = searchParams.get('type')
     const next = searchParams.get('next') ?? '/dashboard'
 
     if (code) {
-        let response = NextResponse.redirect(`${origin}${next}`)
+        // For password-recovery callbacks, redirect to the profile page
+        // with a reset flag so the UI skips old-password verification.
+        const isRecovery = type === 'recovery'
+        const redirectTo = isRecovery
+            ? `${origin}/dashboard/profile?reset=true`
+            : `${origin}${next}`
+
+        let response = NextResponse.redirect(redirectTo)
 
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
