@@ -15,6 +15,7 @@
  */
 
 import { triggerTokenLimitHit } from '@/context/AppContext'
+import { createBrowserClient } from '@supabase/ssr'
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -36,12 +37,16 @@ export class ApiError extends Error {
 }
 
 // ── Auth token helper ──────────────────────────────────────────────────────
-// Reads from localStorage. Swap `localStorage.getItem('zeno_auth_token')`
-// for your auth provider's session token retrieval in backend integration.
+// Reads the current session token from the Supabase cookie-based session.
 
-function getAuthToken(): string | null {
+async function getAuthToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('zeno_auth_token')
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+  )
+  const { data } = await supabase.auth.getSession()
+  return data.session?.access_token ?? null
 }
 
 // ── Core request function ──────────────────────────────────────────────────
@@ -53,7 +58,7 @@ async function request<T = unknown>(
   customHeaders?: Record<string, string>,
 ): Promise<T> {
   const url = path.startsWith('http') ? path : `${BASE_URL}${path}`
-  const token = getAuthToken()
+  const token = await getAuthToken()
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
