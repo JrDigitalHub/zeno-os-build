@@ -656,6 +656,9 @@ function OraclePricingModal({
 const INITIAL_CREDITS = 3
 
 export default function OraclePage() {
+  const { user } = useAppContext()
+  const workspaceId = user?.workspace_id
+
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -688,7 +691,11 @@ export default function OraclePage() {
 
     try {
       if (!upgraded) setCredits((c) => Math.max(0, c - 1))
-      const data = await apiClient.post<Lead[]>('/api/v1/oracle/scan', { query })
+      const data = await apiClient.post<Lead[]>('/api/directive', {
+        workspace_id: workspa ceId || '',
+        target: query,
+        mode: 'LOCAL_SCANNER',
+      })
       clearInterval(interval)
       setProgress(100)
       

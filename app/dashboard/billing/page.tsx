@@ -713,7 +713,7 @@ export default function BillingPage() {
     setIsLoading(true)
 
     apiClient
-      .get<any>('/api/v1/modeler/invoices')
+      .get<any>('/api/v1/cfo/invoices')
       .then((data) => {
         if (cancelled) return
         const rawInvoices = Array.isArray(data) ? data : data?.invoices ?? []

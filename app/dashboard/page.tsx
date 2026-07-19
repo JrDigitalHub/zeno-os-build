@@ -173,46 +173,13 @@ export default function CommandCenterPage() {
   useEffect(() => {
     let cancelled = false
 
-    apiClient
-      .get<any>('/api/v1/oracle/scan')
-      .then((data) => {
-        if (cancelled) return
-        let targets: any[] = []
-        let totalLeads = 0
-        let activeScans = 0
-        if (data && typeof data === 'object') {
-          if (Array.isArray(data)) {
-            totalLeads = data.length
-            const domains = Array.from(new Set(data.map((l: any) => l.domain || l.company).filter(Boolean)))
-            targets = domains.map((domain: any) => {
-              const domainLeads = data.filter((l: any) => (l.domain || l.company) === domain)
-              const status = domainLeads.some((l: any) => l.status === 'scanning' || l.status === 'active') ? 'scanning' : 'active'
-              return {
-                domain,
-                status,
-                leads: domainLeads.length,
-              }
-            })
-            activeScans = targets.filter(t => t.status === 'scanning').length
-          } else {
-            targets = Array.isArray(data.targets) ? data.targets : []
-            totalLeads = typeof data.totalLeads === 'number' ? data.totalLeads : (data.total_leads ?? 0)
-            activeScans = typeof data.activeScans === 'number' ? data.activeScans : (data.active_scans ?? 0)
-          }
-        }
-        setOracleData({ targets, totalLeads, activeScans })
-      })
-      .catch((err) => {
-        if (cancelled) return
-        toast({
-          variant: 'error',
-          title: 'Failed to load Oracle data',
-          description: err instanceof Error ? err.message : 'Error fetching from backend.',
-        })
-      })
+    // TODO: no backend GET endpoint exists yet for oracle/discovery status.
+    // /api/directive is POST-only and triggers a scan — it doesn't return results.
+    // Using empty fallback until a GET endpoint is added.
+    setOracleData({ targets: [], totalLeads: 0, activeScans: 0 })
 
     apiClient
-      .get<any>('/api/v1/sentinel/tasks')
+      .get<any>('/api/v1/coo/tasks')
       .then((data) => {
         if (cancelled) return
         const rawTasks = Array.isArray(data) ? data : data?.tasks ?? []
@@ -244,7 +211,7 @@ export default function CommandCenterPage() {
       })
 
     apiClient
-      .get<any>('/api/v1/modeler/ledger')
+      .get<any>('/api/v1/cfo/ledger')
       .then((data) => {
         if (cancelled) return
         let balance = 0
@@ -269,7 +236,7 @@ export default function CommandCenterPage() {
             label: t.label || t.description || 'Transaction',
             amount: typeof t.amount === 'number' ? t.amount : parseFloat(t.amount) || 0,
             date: t.date || 'Jun 30',
-            type: t.type === 'credit' || t.type === 'incoming' || t.amount > 0 ? 'credit' : 'debit',
+            type: (t.type === 'credit' || t.type === 'incoming' || t.amount > 0 ? 'credit' : 'debit') as 'credit' | 'debit',
           }
         })
         setCfoData({ balance, inflow, outflow, transactions: mappedTransactions })

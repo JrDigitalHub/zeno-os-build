@@ -208,7 +208,7 @@ function IngestionModal({
         payload = { text: rawText.trim() }
       }
 
-      await apiClient.post('/api/v1/modeler/ledger', payload)
+      await apiClient.post('/api/v1/cfo/ledger', payload)
 
       setSummary({ files: files.map((f) => f.name), url: url.trim(), text: rawText.trim().length > 0 })
       setState('done')
@@ -489,7 +489,7 @@ export default function FinancialsPage() {
   const fetchLedger = useCallback((showLoading = false) => {
     if (showLoading) setIsLoading(true)
     apiClient
-      .get<any>('/api/v1/modeler/ledger')
+      .get<any>('/api/v1/cfo/ledger')
       .then((data) => {
         const rawTxns = Array.isArray(data) ? data : data?.transactions ?? []
         const mapped: Transaction[] = rawTxns.map((t: any, index: number) => {

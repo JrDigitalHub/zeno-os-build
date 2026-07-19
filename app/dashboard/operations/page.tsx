@@ -406,7 +406,7 @@ export default function OperationsPage() {
     setIsLoading(true)
 
     apiClient
-      .get<any>('/api/v1/sentinel/tasks')
+      .get<any>('/api/v1/coo/tasks')
       .then((data) => {
         if (cancelled) return
         

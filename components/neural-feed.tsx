@@ -110,9 +110,10 @@ export function NeuralFeed() {
 
   useEffect(() => {
     let cancelled = false
-    apiClient
-      .get<any>('/api/v1/sentinel/alerts')
-      .then((data) => {
+    // TODO: no backend endpoint exists yet for alerts.
+    // Returning empty array to prevent 404s until the backend adds one.
+    Promise.resolve([])
+      .then((data: any) => {
         if (cancelled) return
         const rawAlerts = Array.isArray(data) ? data : data?.alerts ?? []
         const mapped: FeedAlert[] = rawAlerts.map((a: any, index: number) => ({
@@ -126,14 +127,6 @@ export function NeuralFeed() {
           action: a.action ? { label: a.action.label || 'View', href: a.action.href || '#' } : undefined,
         }))
         setFeed(mapped)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        toast({
-          variant: 'error',
-          title: 'Failed to load alerts',
-          description: err instanceof Error ? err.message : 'Error fetching alerts from backend.',
-        })
       })
 
     return () => {
