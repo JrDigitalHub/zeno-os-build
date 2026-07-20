@@ -692,7 +692,7 @@ export default function OraclePage() {
     try {
       if (!upgraded) setCredits((c) => Math.max(0, c - 1))
       const data = await apiClient.post<Lead[]>('/api/directive', {
-        workspace_id: workspa ceId || '',
+        workspace_id: workspaceId || '',
         target: query,
         mode: 'LOCAL_SCANNER',
       })

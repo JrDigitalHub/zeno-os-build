@@ -208,7 +208,7 @@ function IngestionModal({
         payload = { text: rawText.trim() }
       }
 
-      await apiClient.post('/api/v1/cfo/ledger', payload)
+      await apiClient.post('/api/v1/cfo/invoices', payload)
 
       setSummary({ files: files.map((f) => f.name), url: url.trim(), text: rawText.trim().length > 0 })
       setState('done')

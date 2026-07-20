@@ -712,8 +712,9 @@ export default function BillingPage() {
     let cancelled = false
     setIsLoading(true)
 
-    apiClient
-      .get<any>('/api/v1/cfo/invoices')
+    // TODO: no backend endpoint exists yet for listing invoice/billing history.
+    // Returning empty array to prevent 404s until the backend adds one.
+    Promise.resolve([])
       .then((data) => {
         if (cancelled) return
         const rawInvoices = Array.isArray(data) ? data : data?.invoices ?? []
@@ -727,14 +728,6 @@ export default function BillingPage() {
           }
         })
         setInvoices(mapped)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        toast({
-          variant: 'error',
-          title: 'Failed to load invoices',
-          description: err instanceof Error ? err.message : 'Error fetching billing history.',
-        })
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false)
