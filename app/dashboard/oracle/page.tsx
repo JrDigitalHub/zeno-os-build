@@ -44,8 +44,8 @@ type DraftModalState = {
 
 function StatusBadge({ status }: { status: Lead['status'] }) {
   const map: Record<Lead['status'], { bg: string; color: string }> = {
-    Verified:   { bg: 'rgba(74,156,93,0.12)',   color: '#4a9c5d' },
-    Enriched:   { bg: 'rgba(201,168,76,0.12)',  color: '#c9a84c' },
+    Verified: { bg: 'rgba(74,156,93,0.12)', color: '#4a9c5d' },
+    Enriched: { bg: 'rgba(201,168,76,0.12)', color: '#c9a84c' },
     Unverified: { bg: 'rgba(122,149,176,0.12)', color: '#7a95b0' },
   }
   const s = map[status]
@@ -310,8 +310,8 @@ function OraclePricingModal({
               {step === 'pricing'
                 ? 'Unlock unlimited Oracle Neural Compute.'
                 : step === 'checkout'
-                ? `${selected.name} · Monthly · ${isNigeria ? selected.priceNGN : selected.priceUSD}`
-                : 'Oracle credits are now unlimited.'}
+                  ? `${selected.name} · Monthly · ${isNigeria ? selected.priceNGN : selected.priceUSD}`
+                  : 'Oracle credits are now unlimited.'}
             </p>
           </div>
           {step !== 'success' && (
@@ -461,9 +461,69 @@ function OraclePricingModal({
                 // Starter / Professional — redirect to Polar checkout
                 isNigeria ? (
                   // Nigeria: keep internal checkout flow (Paystack)
+                  <button
+                    onClick={() => setStep('checkout')}
+                    className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+                    style={
+                      selected.key === 'professional'
+                        ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
+                        : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                    }
+                    onMouseEnter={(e) => {
+                      if (selected.key === 'professional') {
+                        (e.currentTarget as HTMLElement).style.background = '#d4b560'
+                      } else {
+                        (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (selected.key === 'professional') {
+                        (e.currentTarget as HTMLElement).style.background = '#c9a84c'
+                      } else {
+                        (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
+                      }
+                    }}
+                  >
+                    Select {selected.name}
+                  </button>
+                ) : (
+                  // Rest of World: open Polar checkout in new tab with workspace_id
+                  walletLoading ? (
                     <button
-                      onClick={() => setStep('checkout')}
-                      className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+                      disabled
+                      className="w-full py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed flex items-center justify-center gap-2"
+                      style={
+                        selected.key === 'professional'
+                          ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
+                          : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                      }
+                    >
+                      <Loader2 size={16} className="animate-spin" />
+                      Loading...
+                    </button>
+                  ) : !workspaceId ? (
+                    <button
+                      disabled
+                      className="w-full py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed text-center block"
+                      style={
+                        selected.key === 'professional'
+                          ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
+                          : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                      }
+                    >
+                      Workspace ID Missing
+                    </button>
+                  ) : (
+                    <a
+                      id={`oracle-polar-checkout-${selected.key}`}
+                      href={
+                        selected.key === 'starter'
+                          ? `${POLAR_CHECKOUT_IDS.starter}?workspace_id=${workspaceId}`
+                          : `${POLAR_CHECKOUT_IDS.professional}?workspace_id=${workspaceId}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-3 rounded-xl text-sm font-bold transition-all text-center block"
                       style={
                         selected.key === 'professional'
                           ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
@@ -484,70 +544,10 @@ function OraclePricingModal({
                         }
                       }}
                     >
-                      Select {selected.name}
-                    </button>
-                  ) : (
-                    // Rest of World: open Polar checkout in new tab with workspace_id
-                    walletLoading ? (
-                      <button
-                        disabled
-                        className="w-full py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed flex items-center justify-center gap-2"
-                        style={
-                          selected.key === 'professional'
-                            ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
-                            : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
-                        }
-                      >
-                        <Loader2 size={16} className="animate-spin" />
-                        Loading...
-                      </button>
-                    ) : !workspaceId ? (
-                      <button
-                        disabled
-                        className="w-full py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed text-center block"
-                        style={
-                          selected.key === 'professional'
-                            ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
-                            : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
-                        }
-                      >
-                        Workspace ID Missing
-                      </button>
-                    ) : (
-                      <a
-                        id={`oracle-polar-checkout-${selected.key}`}
-                        href={
-                          selected.key === 'starter'
-                            ? `${POLAR_CHECKOUT_IDS.starter}?workspace_id=${workspaceId}`
-                            : `${POLAR_CHECKOUT_IDS.professional}?workspace_id=${workspaceId}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full py-3 rounded-xl text-sm font-bold transition-all text-center block"
-                        style={
-                          selected.key === 'professional'
-                            ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
-                            : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
-                        }
-                        onMouseEnter={(e) => {
-                          if (selected.key === 'professional') {
-                            (e.currentTarget as HTMLElement).style.background = '#d4b560'
-                          } else {
-                            (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (selected.key === 'professional') {
-                            (e.currentTarget as HTMLElement).style.background = '#c9a84c'
-                          } else {
-                            (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
-                          }
-                        }}
-                      >
-                        Checkout with Polar →
-                      </a>
-                    )
+                      Checkout with Polar →
+                    </a>
                   )
+                )
               )}
               <p className="text-center text-[11px] font-mono" style={{ color: '#7a95b0' }}>
                 {selected.key === 'enterprise'
@@ -656,7 +656,7 @@ function OraclePricingModal({
 const INITIAL_CREDITS = 3
 
 export default function OraclePage() {
-  const { user } = useAppContext()
+  const { user, walletLoading } = useAppContext()
   const workspaceId = user?.workspace_id
 
   const [query, setQuery] = useState('')
@@ -675,7 +675,16 @@ export default function OraclePage() {
 
   async function handleSearch() {
     if (!query.trim() || creditsExhausted) return
-    
+
+    if (!workspaceId) {
+      toast({
+        variant: 'error',
+        title: 'Workspace Required',
+        description: 'Workspace ID is missing or still loading. Please try again shortly.',
+      })
+      return
+    }
+
     setLoading(true)
     setLeads([])
     setProgress(5)
@@ -698,7 +707,7 @@ export default function OraclePage() {
       })
       clearInterval(interval)
       setProgress(100)
-      
+
       // Delay slightly so user sees 100% before it hides
       await new Promise((r) => setTimeout(r, 300))
       setLeads(data)
@@ -723,289 +732,289 @@ export default function OraclePage() {
     <div className="flex h-[calc(100vh-57px)]">
       {/* ── 70% main content ── */}
       <div className="flex-1 overflow-y-auto min-w-0">
-      {modal.open && modal.lead && (
-        <DraftModal lead={modal.lead} onClose={() => setModal({ open: false, lead: null })} />
-      )}
-      {pricingOpen && (
-        <OraclePricingModal
-          onClose={() => setPricingOpen(false)}
-          onSuccess={() => { setUpgraded(true); setPricingOpen(false) }}
-        />
-      )}
+        {modal.open && modal.lead && (
+          <DraftModal lead={modal.lead} onClose={() => setModal({ open: false, lead: null })} />
+        )}
+        {pricingOpen && (
+          <OraclePricingModal
+            onClose={() => setPricingOpen(false)}
+            onSuccess={() => { setUpgraded(true); setPricingOpen(false) }}
+          />
+        )}
 
-      <div className="p-6 max-w-6xl mx-auto">
-        {/* Page header */}
-        <div className="flex items-start justify-between gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Search size={16} style={{ color: '#c9a84c' }} />
-              <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
-                Oracle · Research Engine
-              </span>
-            </div>
-            <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
-              Lead Intelligence
-            </h1>
-            <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
-              Enter a target domain or keyword to discover and enrich leads.
-            </p>
-          </div>
-          {/* Credit counter */}
-          <div
-            className="flex items-center gap-2 px-3 py-2 rounded-xl flex-shrink-0"
-            style={{
-              background: creditsExhausted
-                ? 'rgba(224,82,82,0.1)'
-                : upgraded
-                ? 'rgba(74,156,93,0.1)'
-                : credits <= 1
-                ? 'rgba(224,160,82,0.1)'
-                : 'rgba(201,168,76,0.08)',
-              border: `1px solid ${creditsExhausted ? 'rgba(224,82,82,0.3)' : upgraded ? 'rgba(74,156,93,0.3)' : credits <= 1 ? 'rgba(224,160,82,0.3)' : 'rgba(201,168,76,0.2)'}`,
-            }}
-          >
-            <Zap
-              size={13}
-              style={{ color: creditsExhausted ? '#e05252' : upgraded ? '#4a9c5d' : credits <= 1 ? '#e0a052' : '#c9a84c' }}
-            />
-            <span
-              className="text-xs font-mono font-semibold"
-              style={{ color: creditsExhausted ? '#e05252' : upgraded ? '#4a9c5d' : credits <= 1 ? '#e0a052' : '#c9a84c' }}
-            >
-              {upgraded ? 'Unlimited' : `${credits} credit${credits !== 1 ? 's' : ''} left`}
-            </span>
-          </div>
-        </div>
-
-        {/* Search bar */}
-        <div
-          className="flex gap-3 mb-6 p-4 rounded-xl"
-          style={{
-            background: '#0f2035',
-            border: '1px solid rgba(201,168,76,0.15)',
-          }}
-        >
-          <div className="flex-1 relative">
-            <Globe
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ color: '#7a95b0' }}
-            />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSearch()
-              }}
-              placeholder="e.g. saas fintech london or techcrunch.com"
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm outline-none transition-all"
-              style={{
-                background: 'rgba(201,168,76,0.06)',
-                border: '1px solid rgba(201,168,76,0.18)',
-                color: '#f0f4f8',
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(201,168,76,0.5)')}
-              onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(201,168,76,0.18)')}
-            />
-          </div>
-          <button
-            onClick={handleSearch}
-            disabled={loading || !query.trim() || creditsExhausted}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: creditsExhausted ? 'rgba(224,82,82,0.15)' : '#c9a84c', color: creditsExhausted ? '#e05252' : '#0b1929' }}
-          >
-            {loading ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <ChevronRight size={15} />
-            )}
-            {loading ? 'Researching…' : 'Start Research'}
-          </button>
-        </div>
-
-        {/* Paywall banner */}
-        {creditsExhausted && (
-          <div
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 p-4 rounded-xl"
-            style={{
-              background: 'rgba(224,82,82,0.07)',
-              border: '1px solid rgba(224,82,82,0.3)',
-            }}
-          >
-            <div className="flex items-start gap-3">
-              <AlertTriangle size={18} style={{ color: '#e05252', flexShrink: 0, marginTop: 1 }} />
-              <div>
-                <p className="text-sm font-semibold" style={{ color: '#f0f4f8' }}>
-                  You have exhausted your free Neural Compute credits.
-                </p>
-                <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
-                  Upgrade to Zeno Pro to unlock unlimited Oracle research runs.
-                </p>
+        <div className="p-6 max-w-6xl mx-auto">
+          {/* Page header */}
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <Search size={16} style={{ color: '#c9a84c' }} />
+                <span className="text-[10px] font-mono uppercase tracking-widest" style={{ color: '#7a95b0' }}>
+                  Oracle · Research Engine
+                </span>
               </div>
+              <h1 className="text-xl font-semibold text-balance" style={{ color: '#f0f4f8' }}>
+                Lead Intelligence
+              </h1>
+              <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+                Enter a target domain or keyword to discover and enrich leads.
+              </p>
             </div>
-            <button
-              onClick={() => setPricingOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold flex-shrink-0 transition-all"
-              style={{
-                background: 'rgba(201,168,76,0.18)',
-                border: '1px solid rgba(201,168,76,0.45)',
-                color: '#c9a84c',
-              }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.18)')}
-            >
-              <Zap size={14} />
-              Upgrade to Continue
-            </button>
-          </div>
-        )}
-
-        {/* Progress bar */}
-        {loading && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: '#7a95b0' }}>
-                Scanning targets…
-              </span>
-              <span className="text-[10px] font-mono" style={{ color: '#c9a84c' }}>
-                {Math.min(100, Math.round(progress))}%
-              </span>
-            </div>
+            {/* Credit counter */}
             <div
-              className="h-1 rounded-full overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.07)' }}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl flex-shrink-0"
+              style={{
+                background: creditsExhausted
+                  ? 'rgba(224,82,82,0.1)'
+                  : upgraded
+                    ? 'rgba(74,156,93,0.1)'
+                    : credits <= 1
+                      ? 'rgba(224,160,82,0.1)'
+                      : 'rgba(201,168,76,0.08)',
+                border: `1px solid ${creditsExhausted ? 'rgba(224,82,82,0.3)' : upgraded ? 'rgba(74,156,93,0.3)' : credits <= 1 ? 'rgba(224,160,82,0.3)' : 'rgba(201,168,76,0.2)'}`,
+              }}
             >
-              <div
-                className="h-full rounded-full transition-all duration-300"
-                style={{
-                  width: `${Math.min(100, progress)}%`,
-                  background: 'linear-gradient(90deg, #9c7d35, #c9a84c)',
-                }}
+              <Zap
+                size={13}
+                style={{ color: creditsExhausted ? '#e05252' : upgraded ? '#4a9c5d' : credits <= 1 ? '#e0a052' : '#c9a84c' }}
               />
+              <span
+                className="text-xs font-mono font-semibold"
+                style={{ color: creditsExhausted ? '#e05252' : upgraded ? '#4a9c5d' : credits <= 1 ? '#e0a052' : '#c9a84c' }}
+              >
+                {upgraded ? 'Unlimited' : `${credits} credit${credits !== 1 ? 's' : ''} left`}
+              </span>
             </div>
           </div>
-        )}
 
-        {/* Results table */}
-        {leads.length > 0 && (
+          {/* Search bar */}
           <div
-            className="rounded-xl overflow-hidden"
+            className="flex gap-3 mb-6 p-4 rounded-xl"
             style={{
+              background: '#0f2035',
               border: '1px solid rgba(201,168,76,0.15)',
             }}
           >
-            {/* Table header */}
+            <div className="flex-1 relative">
+              <Globe
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: '#7a95b0' }}
+              />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSearch()
+                }}
+                placeholder="e.g. saas fintech london or techcrunch.com"
+                className="w-full pl-9 pr-4 py-2.5 rounded-lg text-sm outline-none transition-all"
+                style={{
+                  background: 'rgba(201,168,76,0.06)',
+                  border: '1px solid rgba(201,168,76,0.18)',
+                  color: '#f0f4f8',
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(201,168,76,0.5)')}
+                onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(201,168,76,0.18)')}
+              />
+            </div>
+            <button
+              onClick={handleSearch}
+              disabled={loading || walletLoading || !query.trim() || creditsExhausted}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: creditsExhausted ? 'rgba(224,82,82,0.15)' : '#c9a84c', color: creditsExhausted ? '#e05252' : '#0b1929' }}
+            >
+              {loading || walletLoading ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <ChevronRight size={15} />
+              )}
+              {loading ? 'Researching…' : walletLoading ? 'Loading…' : 'Start Research'}
+            </button>
+          </div>
+
+          {/* Paywall banner */}
+          {creditsExhausted && (
             <div
-              className="grid gap-4 px-4 py-2.5 text-[10px] font-mono uppercase tracking-wider"
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 p-4 rounded-xl"
               style={{
-                background: '#0f2035',
-                color: '#7a95b0',
-                gridTemplateColumns: '2fr 2fr 1.5fr 1fr 1fr auto',
-                borderBottom: '1px solid rgba(201,168,76,0.1)',
+                background: 'rgba(224,82,82,0.07)',
+                border: '1px solid rgba(224,82,82,0.3)',
               }}
             >
-              <span className="flex items-center gap-1.5"><Building2 size={10} /> Company</span>
-              <span className="flex items-center gap-1.5"><User size={10} /> Contact</span>
-              <span>Domain</span>
-              <span>Status</span>
-              <span>Score</span>
-              <span>Action</span>
-            </div>
-
-            {/* Table rows */}
-            {leads.map((lead, i) => (
-              <div
-                key={lead.id}
-                className="grid gap-4 px-4 py-3.5 items-center transition-colors"
-                style={{
-                  gridTemplateColumns: '2fr 2fr 1.5fr 1fr 1fr auto',
-                  background: i % 2 === 0 ? '#0d1e30' : 'rgba(15,32,53,0.6)',
-                  borderBottom: i < leads.length - 1 ? '1px solid rgba(201,168,76,0.06)' : 'none',
-                }}
-              >
+              <div className="flex items-start gap-3">
+                <AlertTriangle size={18} style={{ color: '#e05252', flexShrink: 0, marginTop: 1 }} />
                 <div>
-                  <p className="text-sm font-medium" style={{ color: '#f0f4f8' }}>
-                    {lead.company}
+                  <p className="text-sm font-semibold" style={{ color: '#f0f4f8' }}>
+                    You have exhausted your free Neural Compute credits.
                   </p>
-                </div>
-                <div>
-                  <p className="text-sm" style={{ color: '#c0cdd8' }}>
-                    {lead.contact}
+                  <p className="text-xs font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+                    Upgrade to Zeno Pro to unlock unlimited Oracle research runs.
                   </p>
-                  <p className="text-[11px] font-mono mt-0.5" style={{ color: '#7a95b0' }}>
-                    {lead.role}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>
-                    {lead.domain}
-                  </span>
-                </div>
-                <div>
-                  <StatusBadge status={lead.status} />
-                </div>
-                <div>
-                  <ScoreBar score={lead.score} />
-                </div>
-                <div>
-                  <button
-                    onClick={() => openDraft(lead)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
-                    style={{
-                      background: 'rgba(201,168,76,0.1)',
-                      color: '#c9a84c',
-                      border: '1px solid rgba(201,168,76,0.2)',
-                    }}
-                    onMouseEnter={(e) => {
-                      ;(e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
-                    }}
-                    onMouseLeave={(e) => {
-                      ;(e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.1)'
-                    }}
-                  >
-                    <Mail size={11} />
-                    Draft Email
-                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Empty state */}
-        {hasSearched && !loading && leads.length === 0 && (
-          <div
-            className="flex flex-col items-center justify-center py-20 rounded-xl"
-            style={{ border: '1px dashed rgba(201,168,76,0.15)' }}
-          >
-            <Search size={32} style={{ color: 'rgba(201,168,76,0.3)' }} />
-            <p className="mt-3 text-sm font-mono" style={{ color: '#7a95b0' }}>
-              No results found. Try a different query.
-            </p>
-          </div>
-        )}
-
-        {!hasSearched && (
-          <div
-            className="flex flex-col items-center justify-center py-20 rounded-xl"
-            style={{ border: '1px dashed rgba(201,168,76,0.12)' }}
-          >
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
-              style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}
-            >
-              <Globe size={20} style={{ color: '#c9a84c' }} />
+              <button
+                onClick={() => setPricingOpen(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold flex-shrink-0 transition-all"
+                style={{
+                  background: 'rgba(201,168,76,0.18)',
+                  border: '1px solid rgba(201,168,76,0.45)',
+                  color: '#c9a84c',
+                }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.18)')}
+              >
+                <Zap size={14} />
+                Upgrade to Continue
+              </button>
             </div>
-            <p className="text-sm font-semibold" style={{ color: '#c0cdd8' }}>
-              Ready to research
-            </p>
-            <p className="text-xs font-mono mt-1" style={{ color: '#7a95b0' }}>
-              Enter a domain or keyword above to begin lead discovery.
-            </p>
-          </div>
-        )}
-      </div>
+          )}
+
+          {/* Progress bar */}
+          {loading && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-mono uppercase tracking-wider" style={{ color: '#7a95b0' }}>
+                  Scanning targets…
+                </span>
+                <span className="text-[10px] font-mono" style={{ color: '#c9a84c' }}>
+                  {Math.min(100, Math.round(progress))}%
+                </span>
+              </div>
+              <div
+                className="h-1 rounded-full overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.07)' }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${Math.min(100, progress)}%`,
+                    background: 'linear-gradient(90deg, #9c7d35, #c9a84c)',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Results table */}
+          {leads.length > 0 && (
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{
+                border: '1px solid rgba(201,168,76,0.15)',
+              }}
+            >
+              {/* Table header */}
+              <div
+                className="grid gap-4 px-4 py-2.5 text-[10px] font-mono uppercase tracking-wider"
+                style={{
+                  background: '#0f2035',
+                  color: '#7a95b0',
+                  gridTemplateColumns: '2fr 2fr 1.5fr 1fr 1fr auto',
+                  borderBottom: '1px solid rgba(201,168,76,0.1)',
+                }}
+              >
+                <span className="flex items-center gap-1.5"><Building2 size={10} /> Company</span>
+                <span className="flex items-center gap-1.5"><User size={10} /> Contact</span>
+                <span>Domain</span>
+                <span>Status</span>
+                <span>Score</span>
+                <span>Action</span>
+              </div>
+
+              {/* Table rows */}
+              {leads.map((lead, i) => (
+                <div
+                  key={lead.id}
+                  className="grid gap-4 px-4 py-3.5 items-center transition-colors"
+                  style={{
+                    gridTemplateColumns: '2fr 2fr 1.5fr 1fr 1fr auto',
+                    background: i % 2 === 0 ? '#0d1e30' : 'rgba(15,32,53,0.6)',
+                    borderBottom: i < leads.length - 1 ? '1px solid rgba(201,168,76,0.06)' : 'none',
+                  }}
+                >
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: '#f0f4f8' }}>
+                      {lead.company}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm" style={{ color: '#c0cdd8' }}>
+                      {lead.contact}
+                    </p>
+                    <p className="text-[11px] font-mono mt-0.5" style={{ color: '#7a95b0' }}>
+                      {lead.role}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>
+                      {lead.domain}
+                    </span>
+                  </div>
+                  <div>
+                    <StatusBadge status={lead.status} />
+                  </div>
+                  <div>
+                    <ScoreBar score={lead.score} />
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => openDraft(lead)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                      style={{
+                        background: 'rgba(201,168,76,0.1)',
+                        color: '#c9a84c',
+                        border: '1px solid rgba(201,168,76,0.2)',
+                      }}
+                      onMouseEnter={(e) => {
+                        ; (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
+                      }}
+                      onMouseLeave={(e) => {
+                        ; (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.1)'
+                      }}
+                    >
+                      <Mail size={11} />
+                      Draft Email
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {hasSearched && !loading && leads.length === 0 && (
+            <div
+              className="flex flex-col items-center justify-center py-20 rounded-xl"
+              style={{ border: '1px dashed rgba(201,168,76,0.15)' }}
+            >
+              <Search size={32} style={{ color: 'rgba(201,168,76,0.3)' }} />
+              <p className="mt-3 text-sm font-mono" style={{ color: '#7a95b0' }}>
+                No results found. Try a different query.
+              </p>
+            </div>
+          )}
+
+          {!hasSearched && (
+            <div
+              className="flex flex-col items-center justify-center py-20 rounded-xl"
+              style={{ border: '1px dashed rgba(201,168,76,0.12)' }}
+            >
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
+                style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}
+              >
+                <Globe size={20} style={{ color: '#c9a84c' }} />
+              </div>
+              <p className="text-sm font-semibold" style={{ color: '#c0cdd8' }}>
+                Ready to research
+              </p>
+              <p className="text-xs font-mono mt-1" style={{ color: '#7a95b0' }}>
+                Enter a domain or keyword above to begin lead discovery.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── 30% terminal ── */}
