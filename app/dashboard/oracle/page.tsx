@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { buildPolarUrl, POLAR_CHECKOUT_IDS } from '@/lib/polar-config'
 import { useAppContext } from '@/context/AppContext'
 import DirectAgentTerminal from '@/components/direct-agent-terminal'
 import { apiClient } from '@/lib/api-client'
@@ -458,96 +457,32 @@ function OraclePricingModal({
                   Contact Our Enterprise Team
                 </a>
               ) : (
-                // Starter / Professional — redirect to Polar checkout
-                isNigeria ? (
-                  // Nigeria: keep internal checkout flow (Paystack)
-                  <button
-                    onClick={() => setStep('checkout')}
-                    className="w-full py-3 rounded-xl text-sm font-bold transition-all"
-                    style={
-                      selected.key === 'professional'
-                        ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
-                        : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                // Starter / Professional — Paystack checkout flow
+                <button
+                  onClick={() => setStep('checkout')}
+                  className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+                  style={
+                    selected.key === 'professional'
+                      ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
+                      : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
+                  }
+                  onMouseEnter={(e) => {
+                    if (selected.key === 'professional') {
+                      (e.currentTarget as HTMLElement).style.background = '#d4b560'
+                    } else {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
                     }
-                    onMouseEnter={(e) => {
-                      if (selected.key === 'professional') {
-                        (e.currentTarget as HTMLElement).style.background = '#d4b560'
-                      } else {
-                        (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (selected.key === 'professional') {
-                        (e.currentTarget as HTMLElement).style.background = '#c9a84c'
-                      } else {
-                        (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
-                      }
-                    }}
-                  >
-                    Select {selected.name}
-                  </button>
-                ) : (
-                  // Rest of World: open Polar checkout in new tab with workspace_id
-                  walletLoading ? (
-                    <button
-                      disabled
-                      className="w-full py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed flex items-center justify-center gap-2"
-                      style={
-                        selected.key === 'professional'
-                          ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
-                          : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
-                      }
-                    >
-                      <Loader2 size={16} className="animate-spin" />
-                      Loading...
-                    </button>
-                  ) : !workspaceId ? (
-                    <button
-                      disabled
-                      className="w-full py-3 rounded-xl text-sm font-bold opacity-60 cursor-not-allowed text-center block"
-                      style={
-                        selected.key === 'professional'
-                          ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
-                          : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
-                      }
-                    >
-                      Workspace ID Missing
-                    </button>
-                  ) : (
-                    <a
-                      id={`oracle-polar-checkout-${selected.key}`}
-                      href={
-                        selected.key === 'starter'
-                          ? `${POLAR_CHECKOUT_IDS.starter}?workspace_id=${workspaceId}`
-                          : `${POLAR_CHECKOUT_IDS.professional}?workspace_id=${workspaceId}`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-3 rounded-xl text-sm font-bold transition-all text-center block"
-                      style={
-                        selected.key === 'professional'
-                          ? { background: '#c9a84c', color: '#0b1929', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }
-                          : { background: 'rgba(201,168,76,0.2)', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c' }
-                      }
-                      onMouseEnter={(e) => {
-                        if (selected.key === 'professional') {
-                          (e.currentTarget as HTMLElement).style.background = '#d4b560'
-                        } else {
-                          (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.3)'
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (selected.key === 'professional') {
-                          (e.currentTarget as HTMLElement).style.background = '#c9a84c'
-                        } else {
-                          (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
-                        }
-                      }}
-                    >
-                      Checkout with Polar →
-                    </a>
-                  )
-                )
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selected.key === 'professional') {
+                      (e.currentTarget as HTMLElement).style.background = '#c9a84c'
+                    } else {
+                      (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.2)'
+                    }
+                  }}
+                >
+                  Select {selected.name}
+                </button>
               )}
               <p className="text-center text-[11px] font-mono" style={{ color: '#7a95b0' }}>
                 {selected.key === 'enterprise'
@@ -583,12 +518,12 @@ function OraclePricingModal({
                 <span
                   className="text-xs font-semibold font-mono px-2 py-0.5 rounded-full"
                   style={{
-                    background: isNigeria ? 'rgba(0,123,63,0.12)' : 'rgba(122,149,176,0.1)',
-                    color: isNigeria ? '#4a9c5d' : '#c0cdd8',
-                    border: `1px solid ${isNigeria ? 'rgba(0,123,63,0.25)' : 'rgba(122,149,176,0.2)'}`,
+                    background: 'rgba(0,123,63,0.12)',
+                    color: '#4a9c5d',
+                    border: '1px solid rgba(0,123,63,0.25)',
                   }}
                 >
-                  {isNigeria ? 'Paystack' : 'Polar'}
+                  Paystack
                 </span>
               </div>
             </div>
@@ -597,17 +532,12 @@ function OraclePricingModal({
                 onClick={handlePay}
                 disabled={paying}
                 className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl text-sm font-bold transition-all disabled:opacity-70"
-                style={isNigeria
-                  ? { background: paying ? 'rgba(0,123,63,0.4)' : '#007b3f', color: '#fff', border: '1px solid rgba(0,123,63,0.4)' }
-                  : { background: paying ? 'rgba(15,32,53,0.9)' : '#111d2b', color: '#f0f4f8', border: '1px solid rgba(201,168,76,0.25)' }
-                }
+                style={{ background: paying ? 'rgba(0,123,63,0.4)' : '#007b3f', color: '#fff', border: '1px solid rgba(0,123,63,0.4)' }}
               >
                 {paying ? (
                   <><Loader2 size={15} className="animate-spin" /> Processing...</>
-                ) : isNigeria ? (
-                  <><ShieldCheck size={15} /> Pay securely with Paystack</>
                 ) : (
-                  <><ShieldCheck size={15} /> Checkout securely via Polar</>
+                  <><ShieldCheck size={15} /> Pay securely with Paystack</>
                 )}
               </button>
               <div className="flex items-center justify-center gap-2">

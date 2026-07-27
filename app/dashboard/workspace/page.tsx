@@ -13,6 +13,9 @@ import {
   Search,
   KanbanSquare,
   BookOpen,
+  Mail,
+  Trash2,
+  ShieldCheck,
 } from 'lucide-react'
 
 // ── Shared primitives ──────────────────────────────────────────────────────
@@ -51,12 +54,16 @@ function Field({
   onChange,
   readOnly,
   hint,
+  type = 'text',
+  placeholder,
 }: {
   label: string
   value: string
   onChange?: (v: string) => void
   readOnly?: boolean
   hint?: string
+  type?: string
+  placeholder?: string
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -67,9 +74,10 @@ function Field({
         {label}
       </label>
       <input
-        type="text"
+        type={type}
         value={value}
         readOnly={readOnly}
+        placeholder={placeholder}
         onChange={(e) => onChange?.(e.target.value)}
         className="w-full px-4 py-2.5 rounded-xl text-sm font-mono outline-none transition-all"
         style={{
@@ -191,6 +199,16 @@ export default function WorkspacePage() {
   const [copied, setCopied] = useState(false)
   const [generating, setGenerating] = useState(false)
 
+  // SMTP Settings State
+  const [smtpConfigured, setSmtpConfigured] = useState<boolean | null>(null)
+  const [smtpHost, setSmtpHost] = useState('')
+  const [smtpPort, setSmtpPort] = useState('')
+  const [smtpUsername, setSmtpUsername] = useState('')
+  const [smtpPassword, setSmtpPassword] = useState('')
+  const [smtpSenderName, setSmtpSenderName] = useState('')
+  const [savingSmtp, setSavingSmtp] = useState(false)
+  const [deletingSmtp, setDeletingSmtp] = useState(false)
+
   // Load settings on mount
   useEffect(() => {
     let cancelled = false
@@ -210,12 +228,33 @@ export default function WorkspacePage() {
       .catch((err) => {
         console.error('Failed to load workspace settings', err)
       })
+
+    // Fetch SMTP Configuration Status
+    apiClient
+      .get<any>('/api/v1/settings/smtp')
+      .then((data) => {
+        if (cancelled || !data) return
+        if (data.configured) {
+          setSmtpConfigured(true)
+          setSmtpHost(data.host || '')
+          setSmtpPort(data.port || '')
+          setSmtpUsername(data.username || '')
+          setSmtpSenderName(data.sender_name || data.senderName || '')
+        } else {
+          setSmtpConfigured(false)
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load SMTP settings', err)
+        setSmtpConfigured(false)
+      })
+
     return () => {
       cancelled = true
     }
   }, [])
 
-  // Save
+  // Save General Workspace Settings
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -247,6 +286,73 @@ export default function WorkspacePage() {
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Handle SMTP Credentials Save / Update
+  async function handleSaveSmtp(e: React.FormEvent) {
+    e.preventDefault()
+    if (!smtpHost.trim() || !smtpPort.trim() || !smtpUsername.trim() || !smtpPassword.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'SMTP host, port, username, and password are required.',
+        variant: 'error',
+      })
+      return
+    }
+
+    setSavingSmtp(true)
+    try {
+      const res = await apiClient.post<any>('/api/v1/settings/smtp', {
+        host: smtpHost.trim(),
+        port: smtpPort.trim(),
+        username: smtpUsername.trim(),
+        password: smtpPassword,
+        sender_name: smtpSenderName.trim() || smtpUsername.trim(),
+      })
+
+      setSmtpConfigured(true)
+      setSmtpPassword('') // Clear raw password input for security; never display back
+      toast({
+        title: 'SMTP Credentials Saved',
+        description: res?.message || 'Custom SMTP configuration updated successfully.',
+        variant: 'success',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Failed to save SMTP credentials',
+        description: err.message || 'Something went wrong while saving SMTP settings.',
+        variant: 'error',
+      })
+    } finally {
+      setSavingSmtp(false)
+    }
+  }
+
+  // Handle Delete Custom SMTP
+  async function handleDeleteSmtp() {
+    setDeletingSmtp(true)
+    try {
+      const res = await apiClient.delete<any>('/api/v1/settings/smtp')
+      setSmtpConfigured(false)
+      setSmtpHost('')
+      setSmtpPort('')
+      setSmtpUsername('')
+      setSmtpPassword('')
+      setSmtpSenderName('')
+      toast({
+        title: 'Custom SMTP Removed',
+        description: res?.message || 'Reverted to system default SMTP configuration.',
+        variant: 'success',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'Failed to remove custom SMTP',
+        description: err.message || 'Something went wrong while removing SMTP settings.',
+        variant: 'error',
+      })
+    } finally {
+      setDeletingSmtp(false)
     }
   }
 
@@ -452,7 +558,134 @@ export default function WorkspacePage() {
             )}
           </div>
         </SectionCard>
+
+        {/* Custom SMTP Configuration */}
+        <SectionCard title="Custom SMTP Configuration" icon={Mail}>
+          <form onSubmit={handleSaveSmtp} className="flex flex-col gap-4">
+            <div
+              className="flex items-center justify-between gap-4 p-3.5 rounded-xl"
+              style={{
+                background: smtpConfigured ? 'rgba(74,156,93,0.06)' : 'rgba(201,168,76,0.03)',
+                border: `1px solid ${smtpConfigured ? 'rgba(74,156,93,0.2)' : 'rgba(201,168,76,0.12)'}`,
+              }}
+            >
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck size={16} style={{ color: smtpConfigured ? '#4a9c5d' : '#c9a84c' }} />
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: '#f0f4f8' }}>
+                    Status:{' '}
+                    <span style={{ color: smtpConfigured ? '#4a9c5d' : '#7a95b0' }}>
+                      {smtpConfigured === null
+                        ? 'Checking configuration...'
+                        : smtpConfigured
+                        ? 'Custom SMTP configured'
+                        : 'Using system default'}
+                    </span>
+                  </p>
+                  <p className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>
+                    {smtpConfigured
+                      ? 'Outbound email dispatch uses your workspace custom SMTP server.'
+                      : 'Outbound emails use system default mailer credentials.'}
+                  </p>
+                </div>
+              </div>
+
+              {smtpConfigured && (
+                <button
+                  type="button"
+                  onClick={handleDeleteSmtp}
+                  disabled={deletingSmtp}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono flex-shrink-0 transition-all disabled:opacity-60"
+                  style={{
+                    background: 'rgba(239,68,68,0.1)',
+                    border: '1px solid rgba(239,68,68,0.25)',
+                    color: '#ef4444',
+                  }}
+                  onMouseEnter={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.2)')
+                  }
+                  onMouseLeave={(e) =>
+                    ((e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)')
+                  }
+                >
+                  <Trash2 size={13} />
+                  {deletingSmtp ? 'Removing...' : 'Remove custom SMTP'}
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field
+                label="SMTP Host"
+                value={smtpHost}
+                onChange={setSmtpHost}
+                placeholder="e.g. smtp.zoho.com"
+              />
+              <Field
+                label="SMTP Port"
+                value={smtpPort}
+                onChange={setSmtpPort}
+                placeholder="e.g. 587 or 465"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field
+                label="Username / Email"
+                value={smtpUsername}
+                onChange={setSmtpUsername}
+                placeholder="e.g. user@company.com"
+              />
+              <Field
+                label="Password"
+                type="password"
+                value={smtpPassword}
+                onChange={setSmtpPassword}
+                placeholder={smtpConfigured ? '••••••••' : 'SMTP Password'}
+                hint="Stored using AES-256 GCM encryption. Never returned to browser."
+              />
+            </div>
+
+            <Field
+              label="Sender Display Name"
+              value={smtpSenderName}
+              onChange={setSmtpSenderName}
+              placeholder="e.g. Acme Corp Sales"
+              hint="Optional. Defaults to username if left blank."
+            />
+
+            <div
+              className="flex items-center justify-end gap-3 pt-3 border-t"
+              style={{ borderColor: 'rgba(201,168,76,0.1)' }}
+            >
+              <button
+                type="submit"
+                disabled={savingSmtp}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-60"
+                style={{
+                  background: 'rgba(201,168,76,0.15)',
+                  border: '1px solid rgba(201,168,76,0.35)',
+                  color: '#c9a84c',
+                }}
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.25)')
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.15)')
+                }
+              >
+                <Mail size={14} />
+                {savingSmtp
+                  ? 'Saving SMTP...'
+                  : smtpConfigured
+                  ? 'Update Custom SMTP'
+                  : 'Save Custom SMTP'}
+              </button>
+            </div>
+          </form>
+        </SectionCard>
       </div>
     </div>
   )
 }
+

@@ -160,4 +160,8 @@ export const apiClient = {
   del<T = unknown>(path: string, headers?: Record<string, string>): Promise<T> {
     return request<T>('DELETE', path, undefined, headers)
   },
+
+  delete<T = unknown>(path: string, headers?: Record<string, string>): Promise<T> {
+    return request<T>('DELETE', path, undefined, headers)
+  },
 } as const
