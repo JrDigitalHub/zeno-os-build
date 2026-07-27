@@ -218,7 +218,6 @@ Zeno OS Team`
 // ── Oracle Pricing Modal (lightweight, self-contained) ─────────────────────
 // Mirrors the global 3-tier pricing matrix from /dashboard/billing exactly.
 
-type Region = 'nigeria' | 'world'
 type ModalStep = 'pricing' | 'checkout' | 'success'
 
 const ORACLE_PLANS = [
@@ -226,7 +225,6 @@ const ORACLE_PLANS = [
     key: 'starter' as const,
     name: 'Starter',
     priceUSD: '$19',
-    priceNGN: '₦14,999',
     tagline: 'For growing SMEs',
     highlighted: false,
     badge: undefined as string | undefined,
@@ -236,7 +234,6 @@ const ORACLE_PLANS = [
     key: 'professional' as const,
     name: 'Professional',
     priceUSD: '$99',
-    priceNGN: '₦99,999',
     tagline: 'Most powerful for teams',
     highlighted: true,
     badge: 'Most Popular' as string | undefined,
@@ -246,7 +243,6 @@ const ORACLE_PLANS = [
     key: 'enterprise' as const,
     name: 'Enterprise',
     priceUSD: 'Contact Team',
-    priceNGN: 'Contact Team',
     tagline: 'Unlimited scale',
     highlighted: false,
     badge: undefined as string | undefined,
@@ -262,15 +258,13 @@ function OraclePricingModal({
   onSuccess: () => void
 }) {
   const router = useRouter()
-  const [region, setRegion] = useState<Region>('world')
   const [selected, setSelected] = useState(ORACLE_PLANS[1]) // default: Professional
   const [step, setStep] = useState<ModalStep>('pricing')
   const [paying, setPaying] = useState(false)
-  const isNigeria = region === 'nigeria'
 
   async function handlePay() {
     setPaying(true)
-    // TODO: integrate Paystack (nigeria) checkout here
+    // TODO: integrate Paystack checkout here
     await new Promise((res) => setTimeout(res, 2000))
     setPaying(false)
     setStep('success')
@@ -309,7 +303,7 @@ function OraclePricingModal({
               {step === 'pricing'
                 ? 'Unlock unlimited Oracle Neural Compute.'
                 : step === 'checkout'
-                  ? `${selected.name} · Monthly · ${isNigeria ? selected.priceNGN : selected.priceUSD}`
+                  ? `${selected.name} · Monthly · ${selected.priceUSD}`
                   : 'Oracle credits are now unlimited.'}
             </p>
           </div>
@@ -330,39 +324,12 @@ function OraclePricingModal({
         {/* Pricing step */}
         {step === 'pricing' && (
           <div className="overflow-auto">
-            {/* Geo toggle */}
-            <div
-              className="flex items-center justify-between px-6 py-4 border-b"
-              style={{ borderColor: 'rgba(201,168,76,0.1)' }}
-            >
-              <span className="text-xs font-mono" style={{ color: '#7a95b0' }}>Billing Region</span>
-              <div
-                className="flex items-center gap-1 p-1 rounded-xl"
-                style={{ background: 'rgba(201,168,76,0.07)', border: '1px solid rgba(201,168,76,0.15)' }}
-              >
-                {(['world', 'nigeria'] as Region[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setRegion(r)}
-                    className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                    style={{
-                      background: region === r ? 'rgba(201,168,76,0.18)' : 'transparent',
-                      color: region === r ? '#c9a84c' : '#7a95b0',
-                      border: region === r ? '1px solid rgba(201,168,76,0.35)' : '1px solid transparent',
-                    }}
-                  >
-                    {r === 'nigeria' ? 'Nigeria (₦)' : 'Rest of World ($)'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Plan cards — 3-tier grid matching global pricing */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6">
               {ORACLE_PLANS.map((plan) => {
                 const isSel = selected.key === plan.key
                 const isPro = plan.key === 'professional'
-                const displayPrice = isNigeria ? plan.priceNGN : plan.priceUSD
+                const displayPrice = plan.priceUSD
                 const isContact = displayPrice === 'Contact Team'
                 return (
                   <button
@@ -508,7 +475,7 @@ function OraclePricingModal({
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold" style={{ color: '#c9a84c' }}>
-                    {isNigeria ? selected.priceNGN : selected.priceUSD}
+                    {selected.priceUSD}
                   </p>
                   <p className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>per month</p>
                 </div>

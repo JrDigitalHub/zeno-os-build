@@ -21,7 +21,6 @@ import {
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type Region = 'nigeria' | 'world'
 type PlanKey = 'starter' | 'professional' | 'enterprise'
 type ModalStep = 'pricing' | 'checkout' | 'success'
 
@@ -37,7 +36,6 @@ interface Plan {
   key: PlanKey
   name: string
   priceUSD: string
-  priceNGN: string
   tagline: string
   features: string[]
   highlighted?: boolean
@@ -46,14 +44,11 @@ interface Plan {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-
-
 const PLANS: Plan[] = [
   {
     key: 'starter',
     name: 'Starter',
     priceUSD: '$19',
-    priceNGN: '₦14,999',
     tagline: 'For growing SMEs',
     features: [
       '50 Daily Tasks',
@@ -67,7 +62,6 @@ const PLANS: Plan[] = [
     key: 'professional',
     name: 'Professional',
     priceUSD: '$99',
-    priceNGN: '₦99,999',
     tagline: 'Most powerful for teams',
     highlighted: true,
     badge: 'Most Popular',
@@ -83,7 +77,6 @@ const PLANS: Plan[] = [
     key: 'enterprise',
     name: 'Enterprise',
     priceUSD: 'Contact Team',
-    priceNGN: 'Contact Team',
     tagline: 'Unlimited scale',
     features: [
       'Unlimited Neural Compute',
@@ -157,21 +150,18 @@ function PricingModal({
 }) {
   const router = useRouter()
   const { toast } = useToast()
-  const [region, setRegion] = useState<Region>('world')
   const [selectedPlan, setSelectedPlan] = useState<Plan>(PLANS[1]) // default Professional
   const [step, setStep] = useState<ModalStep>('pricing')
   const [paying, setPaying] = useState(false)
 
-  const isNigeria = region === 'nigeria'
-  const price = isNigeria ? selectedPlan.priceNGN : selectedPlan.priceUSD
+  const price = selectedPlan.priceUSD
 
-  // NOTE: handlePay is kept for the internal checkout step (fallback / Nigeria / Paystack)
+  // NOTE: handlePay is kept for the internal checkout step (Paystack)
   async function handlePay() {
     setPaying(true)
     try {
       const response = await apiClient.post<any>('/api/v1/billing/checkout', {
         plan: selectedPlan.key,
-        region,
       })
 
       const redirectUrl = response?.url || response?.checkoutUrl || response?.authorization_url || response?.data?.authorization_url
@@ -258,41 +248,12 @@ function PricingModal({
         {/* ── Step: Pricing ── */}
         {step === 'pricing' && (
           <div className="overflow-auto flex flex-col">
-            {/* Geo toggle */}
-            <div
-              className="flex items-center justify-between px-6 py-4 border-b"
-              style={{ borderColor: 'rgba(201,168,76,0.1)' }}
-            >
-              <span className="text-xs font-mono" style={{ color: '#7a95b0' }}>
-                Billing Region
-              </span>
-              <div
-                className="flex items-center gap-1 p-1 rounded-xl"
-                style={{ background: 'rgba(201,168,76,0.07)', border: '1px solid rgba(201,168,76,0.15)' }}
-              >
-                {(['world', 'nigeria'] as Region[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setRegion(r)}
-                    className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                    style={{
-                      background: region === r ? 'rgba(201,168,76,0.18)' : 'transparent',
-                      color: region === r ? '#c9a84c' : '#7a95b0',
-                      border: region === r ? '1px solid rgba(201,168,76,0.35)' : '1px solid transparent',
-                    }}
-                  >
-                    {r === 'nigeria' ? 'Nigeria (₦)' : 'Rest of World ($)'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* 3-tier plan cards */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-6">
               {PLANS.map((plan) => {
                 const isSelected = selectedPlan.key === plan.key
                 const isPro = plan.key === 'professional'
-                const displayPrice = isNigeria ? plan.priceNGN : plan.priceUSD
+                const displayPrice = plan.priceUSD
 
                 return (
                   <button
@@ -486,7 +447,7 @@ function PricingModal({
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-bold" style={{ color: '#c9a84c' }}>
-                    {isNigeria ? selectedPlan.priceNGN : selectedPlan.priceUSD}
+                    {selectedPlan.priceUSD}
                   </p>
                   <p className="text-[11px] font-mono" style={{ color: '#7a95b0' }}>
                     per month
